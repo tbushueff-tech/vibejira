@@ -27,7 +27,7 @@ function json(data, status, origin, extraHeaders) {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      ...corsHeaders(origin, request),
+      ...corsHeaders(origin),
       ...(extraHeaders || {})
     }
   });
