@@ -4,6 +4,7 @@ const API_BASE = "https://api.github.com/repos/" + REPO + "/contents/" + FILE_PA
 const ALLOWED_ORIGIN = "https://tbushueff-tech.github.io";
 const AUTO_DELETE_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Force Cloudflare deployment after auth configuration update.
 
 function corsHeaders(origin, request) {
   const headers = {
