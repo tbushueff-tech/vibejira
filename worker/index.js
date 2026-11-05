@@ -130,6 +130,27 @@ function base64urlDecode(value) {
   return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
 
+async function hashPassword(password, salt) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: new TextEncoder().encode(salt), iterations: 120000, hash: "SHA-256" },
+    key,
+    256
+  );
+  return base64url(new Uint8Array(bits));
+}
+
+function randomSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return base64url(bytes);
+}
+
 async function hmacKey(secret) {
   return crypto.subtle.importKey(
     "raw",
@@ -218,17 +239,75 @@ export default {
 
     const url = new URL(request.url);
 
+    if (url.pathname === "/auth/register" && request.method === "POST") {
+      try {
+        if (!env.USER_STORE) {
+          return json({ ok: false, error: "Регистрация не настроена: USER_STORE отсутствует" }, 503, origin);
+        }
+
+        const data = await request.json();
+        const username = String(data.username || "").trim();
+        const password = String(data.password || "");
+
+        if (!/^[A-Za-zА-Яа-яЁё0-9_.-]{3,32}$/.test(username)) {
+          return json({ ok: false, error: "Логин: 3–32 символа, только буквы, цифры, _, -, ." }, 400, origin);
+        }
+        if (password.length < 6 || password.length > 128) {
+          return json({ ok: false, error: "Пароль должен быть от 6 до 128 символов" }, 400, origin);
+        }
+
+        const userKey = "user:" + username.toLowerCase();
+        if (await env.USER_STORE.get(userKey)) {
+          return json({ ok: false, error: "Такой логин уже зарегистрирован" }, 409, origin);
+        }
+
+        const salt = randomSalt();
+        const hash = await hashPassword(password, salt);
+        await env.USER_STORE.put(userKey, JSON.stringify({
+          username,
+          salt,
+          hash,
+          createdAt: Date.now()
+        }));
+
+        const token = await createSession(username, env);
+        return json(
+          { ok: true, username },
+          201,
+          origin,
+          { "Set-Cookie": sessionCookie(token) }
+        );
+      } catch (e) {
+        console.error("Registration failed:", e);
+        return json({ ok: false, error: "Не удалось создать аккаунт" }, 500, origin);
+      }
+    }
+
     if (url.pathname === "/auth/login" && request.method === "POST") {
       try {
         const data = await request.json();
         const username = String(data.username || "");
         const password = String(data.password || "");
 
-        if (!env.AUTH_USER || !env.AUTH_PASSWORD || !env.AUTH_SECRET) {
+        if (!env.AUTH_SECRET) {
           return json({ ok: false, error: "Авторизация не настроена на сервере" }, 503, origin);
         }
 
-        if (username !== env.AUTH_USER || password !== env.AUTH_PASSWORD) {
+        let valid = false;
+        if (env.USER_STORE) {
+          const recordRaw = await env.USER_STORE.get("user:" + username.toLowerCase());
+          if (recordRaw) {
+            const record = JSON.parse(recordRaw);
+            const hash = await hashPassword(password, record.salt);
+            valid = hash === record.hash;
+          }
+        }
+
+        if (!valid && env.AUTH_USER && env.AUTH_PASSWORD) {
+          valid = username === env.AUTH_USER && password === env.AUTH_PASSWORD;
+        }
+
+        if (!valid) {
           return json({ ok: false, error: "Неверный логин или пароль" }, 401, origin);
         }
 
