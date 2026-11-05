@@ -1,0 +1,79 @@
+name: Sync text buffer
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: text-buffer-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: startsWith(github.event.issue.title, '[BUFFER]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply buffer change
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const cp = require('child_process');
+
+          const body = process.env.ISSUE_BODY || '';
+          const match = body.match(/<!-- BUFFER_DATA:([A-Za-z0-9+/=]+) -->/);
+          if (!match) throw new Error('BUFFER_DATA not found');
+
+          const payload = JSON.parse(Buffer.from(match[1], 'base64').toString('utf8'));
+          const path = 'data/texts.json';
+
+          let items = [];
+          if (fs.existsSync(path)) {
+            items = JSON.parse(fs.readFileSync(path, 'utf8'));
+          }
+
+          const now = new Date().toISOString();
+
+          if (payload.op === 'add') {
+            items = items.filter(x => x.id !== payload.item.id);
+            items.unshift({...payload.item, updated_at: now});
+          } else if (payload.op === 'update') {
+            const i = items.findIndex(x => x.id === payload.item.id);
+            if (i >= 0) items[i] = {...items[i], ...payload.item, updated_at: now};
+          } else if (payload.op === 'delete') {
+            items = items.filter(x => x.id !== payload.id);
+          } else {
+            throw new Error('Unknown operation: ' + payload.op);
+          }
+
+          fs.mkdirSync('data', {recursive: true});
+          fs.writeFileSync(path, JSON.stringify(items, null, 2) + '\n');
+
+          cp.execFileSync('git', ['config', 'user.name', 'github-actions[bot]']);
+          cp.execFileSync('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com']);
+          cp.execFileSync('git', ['add', path]);
+
+          try {
+            cp.execFileSync('git', ['diff', '--cached', '--quiet']);
+            console.log('No changes');
+          } catch {
+            cp.execFileSync('git', ['commit', '-m', 'Sync text buffer']);
+            cp.execFileSync('git', ['push']);
+          }
+          NODE
+
+      - name: Close issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: gh issue close "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --comment "Готово: изменение буфера записано в data/texts.json."
