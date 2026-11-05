@@ -89,9 +89,20 @@ async function writeFile(items, sha, message, env) {
   }
 }
 
-async function cleanupExpired(env) {
-  const { file, items } = await readFile(env);
-  const now = Date.now();
+async function getUserBuffer(env, username) {
+  const key = "buffer:" + username.toLowerCase();
+  const raw = await env.USER_STORE.get(key);
+  if (!raw) return [];
+  const items = JSON.parse(raw);
+  return Array.isArray(items) ? items : [];
+}
+
+async function saveUserBuffer(env, username, items) {
+  const key = "buffer:" + username.toLowerCase();
+  await env.USER_STORE.put(key, JSON.stringify(items));
+}
+
+function normalizeBuffer(items, now) {
   let changed = false;
 
   const normalized = items
@@ -115,11 +126,41 @@ async function cleanupExpired(env) {
       return true;
     });
 
-  if (changed) {
-    await writeFile(normalized, file.sha, "Auto-clean text buffer", env);
-  }
+  return { normalized, changed };
+}
 
-  return { changed, count: normalized.length };
+async function cleanupExpiredBuffers(env) {
+  if (!env.USER_STORE) return { changed: false, count: 0 };
+
+  let cursor;
+  let changed = false;
+  let count = 0;
+
+  do {
+    const page = await env.USER_STORE.list({ prefix: "buffer:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.USER_STORE.get(key.name);
+      if (!raw) continue;
+
+      try {
+        const items = JSON.parse(raw);
+        if (!Array.isArray(items)) continue;
+
+        const result = normalizeBuffer(items, Date.now());
+        if (result.changed) {
+          await env.USER_STORE.put(key.name, JSON.stringify(result.normalized));
+          changed = true;
+        }
+        count += result.normalized.length;
+      } catch (e) {
+        console.error("Invalid buffer:", key.name, e);
+      }
+    }
+
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return { changed, count };
 }
 
 function base64url(bytes) {
@@ -256,7 +297,7 @@ function checkKey(request, env) {
 export default {
   async scheduled(controller, env) {
     try {
-      const result = await cleanupExpired(env);
+      const result = await cleanupExpiredBuffers(env);
       console.log("Auto-clean:", controller.cron, result);
     } catch (e) {
       console.error("Auto-clean failed:", e);
@@ -392,35 +433,18 @@ export default {
     }
 
     try {
+      const username = session.username;
+      const now = Date.now();
+
       if (request.method === "GET") {
-        const { file, items } = await readFile(env);
-        const now = Date.now();
-        let changed = false;
+        const items = await getUserBuffer(env, username);
+        const result = normalizeBuffer(items, now);
 
-        const normalized = items
-          .map(item => {
-            if (!item.expiresAt) {
-              changed = true;
-              return {
-                ...item,
-                expiresAt: item.createdAt
-                  ? item.createdAt + AUTO_DELETE_MS
-                  : now + AUTO_DELETE_MS
-              };
-            }
-            return item;
-          })
-          .filter(item => {
-            if (item.expiresAt <= now) {
-              changed = true;
-              return false;
-            }
-            return true;
-          });
+        if (result.changed) {
+          await saveUserBuffer(env, username, result.normalized);
+        }
 
-        if (changed) await writeFile(normalized, file.sha, "Auto-clean text buffer", env);
-
-        return new Response(JSON.stringify(normalized), {
+        return new Response(JSON.stringify(result.normalized), {
           status: 200,
           headers: {
             "Content-Type": "application/json; charset=utf-8",
@@ -435,11 +459,10 @@ export default {
           return json({ ok: false, error: "Body must be an array" }, 400, origin);
         }
 
-        const current = await readFile(env);
+        const current = await getUserBuffer(env, username);
         const existingById = new Map(
-          current.items.map(item => [item.id, item])
+          current.map(item => [item.id, item])
         );
-        const now = Date.now();
 
         const normalized = data.map(item => {
           if (item.expiresAt) return item;
@@ -457,7 +480,7 @@ export default {
           };
         });
 
-        await writeFile(normalized, current.file.sha, "Update text buffer", env);
+        await saveUserBuffer(env, username, normalized);
         return json({ ok: true }, 200, origin);
       }
 
