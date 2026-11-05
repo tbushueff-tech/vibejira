@@ -212,11 +212,11 @@ async function verifySession(request, env) {
 function sessionCookie(token) {
   return "buffer_session=" + token +
     "; Max-Age=" + Math.floor(SESSION_TTL_MS / 1000) +
-    "; Path=/; HttpOnly; Secure; SameSite=None";
+    "; Path=/; HttpOnly; Secure; SameSite=None; Partitioned";
 }
 
 function clearSessionCookie() {
-  return "buffer_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=None";
+  return "buffer_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=None; Partitioned";
 }
 
 function checkKey(request, env) {
