@@ -282,7 +282,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 <div id="login-screen">
   <form class="login-card" id="login-form" autocomplete="on">
     <h1>Буфер текстов</h1>
-    <p>Войдите, чтобы получить доступ к общему буферу.</p>
+    <p id="auth-description">Войдите, чтобы получить доступ к общему буферу.</p>
     <div class="login-fields">
       <div>
         <label class="cap" for="login-user">Логин</label>
@@ -294,6 +294,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       </div>
     </div>
     <button type="submit" class="primary login-button" id="login-button">Войти</button>
+    <button type="button" class="ghost login-button" id="register-toggle">Регистрация</button>
     <div class="login-error" id="login-error" role="alert"></div>
   </form>
 </div>
@@ -359,7 +360,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   var loginUserEl = $("login-user");
   var loginPasswordEl = $("login-password");
   var loginButton = $("login-button");
+  var registerToggle = $("register-toggle");
   var loginError = $("login-error");
+  var authDescription = $("auth-description");
+  var registerMode = false;
   var authUserEl = $("auth-user");
   var logoutButton = $("logout");
 
@@ -374,6 +378,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     loginScreen.style.display = "flex";
     loginPasswordEl.value = "";
     loginError.textContent = "";
+    registerMode = false;
+    authDescription.textContent = "Войдите, чтобы получить доступ к общему буферу.";
+    loginButton.textContent = "Войти";
+    registerToggle.textContent = "Регистрация";
     loginUserEl.focus();
   }
 
@@ -385,6 +393,19 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     });
     if (!res.ok) return null;
     return await res.json();
+  }
+
+  async function register(username, password) {
+    var res = await fetch(AUTH_URL + "/auth/register", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: username, password: password })
+    });
+    var data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error(data.error || "Не удалось зарегистрироваться");
+    return data;
   }
 
   async function login(username, password) {
@@ -413,20 +434,44 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   loginForm.addEventListener("submit", async function (e) {
     e.preventDefault();
     loginError.textContent = "";
+    var username = loginUserEl.value.trim();
+    var password = loginPasswordEl.value;
+
+    if (username.length < 3) {
+      loginError.textContent = "Логин должен быть не короче 3 символов";
+      return;
+    }
+    if (password.length < 6) {
+      loginError.textContent = "Пароль должен быть не короче 6 символов";
+      return;
+    }
+
     loginButton.disabled = true;
-    loginButton.textContent = "Вход…";
+    loginButton.textContent = registerMode ? "Регистрация…" : "Вход…";
     try {
-      var data = await login(loginUserEl.value.trim(), loginPasswordEl.value);
+      var data = registerMode
+        ? await register(username, password)
+        : await login(username, password);
       showApp(data.username);
       updateLiveCount();
       render();
       await loadGithub(true);
     } catch (e) {
-      loginError.textContent = e.message || "Не удалось войти";
+      loginError.textContent = e.message || "Не удалось выполнить операцию";
     } finally {
       loginButton.disabled = false;
-      loginButton.textContent = "Войти";
+      loginButton.textContent = registerMode ? "Зарегистрироваться" : "Войти";
     }
+  });
+
+  registerToggle.addEventListener("click", function () {
+    registerMode = !registerMode;
+    authDescription.textContent = registerMode
+      ? "Создайте аккаунт для доступа к общему буферу."
+      : "Войдите, чтобы получить доступ к общему буферу.";
+    loginButton.textContent = registerMode ? "Зарегистрироваться" : "Войти";
+    registerToggle.textContent = registerMode ? "У меня уже есть аккаунт" : "Регистрация";
+    loginError.textContent = "";
   });
 
   logoutButton.addEventListener("click", logout);
