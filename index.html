@@ -139,6 +139,48 @@ button.ghost { border-color: transparent; background: transparent; color: var(--
 button.ghost:hover { color: var(--fg); background: var(--surface-2); border-color: transparent; }
 button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.login-card {
+  width: min(100%, 380px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.08);
+}
+.login-card h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.login-card p {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+.login-fields { display: flex; flex-direction: column; gap: 12px; }
+.login-error {
+  min-height: 20px;
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 10px;
+}
+.login-button { width: 100%; margin-top: 14px; }
+.app-hidden { display: none !important; }
+.auth-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+
 .status {
   display: flex;
   flex-wrap: wrap;
@@ -237,11 +279,34 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 </head>
 <body>
 
-<div class="wrap">
+<div id="login-screen">
+  <form class="login-card" id="login-form" autocomplete="on">
+    <h1>Буфер текстов</h1>
+    <p>Войдите, чтобы получить доступ к общему буферу.</p>
+    <div class="login-fields">
+      <div>
+        <label class="cap" for="login-user">Логин</label>
+        <input type="text" id="login-user" autocomplete="username" required>
+      </div>
+      <div>
+        <label class="cap" for="login-password">Пароль</label>
+        <input type="password" id="login-password" autocomplete="current-password" required>
+      </div>
+    </div>
+    <button type="submit" class="primary login-button" id="login-button">Войти</button>
+    <div class="login-error" id="login-error" role="alert"></div>
+  </form>
+</div>
+
+<div class="wrap app-hidden" id="app">
   <header>
     <div class="brand">
       <h1>Буфер текстов</h1>
       <p class="lead">Храните готовые фразы, ссылки и реквизиты. Один клик копирует текст в буфер обмена.</p>
+    </div>
+    <div class="auth-bar">
+      <span id="auth-user"></span>
+      <button type="button" class="ghost" id="logout">Выйти</button>
     </div>
     <div class="search">
       <label class="cap" for="search">Поиск</label>
@@ -276,6 +341,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 <script>
 (function () {
   var KEY = "bufer-tekstov-v1";
+  var AUTH_URL = "https://vibejira.t-bushueff.workers.dev";
   var DATA_URL = "./data/texts.json";
   var REPO = "tbushueff-tech/vibejira";
   var items = [];
@@ -287,6 +353,85 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   var AUTO_DELETE_MS = 5 * 60 * 1000;
 
   var $ = function (id) { return document.getElementById(id); };
+  var loginScreen = $("login-screen");
+  var appEl = $("app");
+  var loginForm = $("login-form");
+  var loginUserEl = $("login-user");
+  var loginPasswordEl = $("login-password");
+  var loginButton = $("login-button");
+  var loginError = $("login-error");
+  var authUserEl = $("auth-user");
+  var logoutButton = $("logout");
+
+  function showApp(username) {
+    loginScreen.style.display = "none";
+    appEl.classList.remove("app-hidden");
+    authUserEl.textContent = username || "";
+  }
+
+  function showLogin() {
+    appEl.classList.add("app-hidden");
+    loginScreen.style.display = "flex";
+    loginPasswordEl.value = "";
+    loginError.textContent = "";
+    loginUserEl.focus();
+  }
+
+  async function checkAuth() {
+    var res = await fetch(AUTH_URL + "/auth/me", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store"
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  }
+
+  async function login(username, password) {
+    var res = await fetch(AUTH_URL + "/auth/login", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: username, password: password })
+    });
+    var data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error(data.error || "Неверный логин или пароль");
+    return data;
+  }
+
+  async function logout() {
+    try {
+      await fetch(AUTH_URL + "/auth/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+    } catch (e) {}
+    showLogin();
+  }
+
+  loginForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    loginError.textContent = "";
+    loginButton.disabled = true;
+    loginButton.textContent = "Вход…";
+    try {
+      var data = await login(loginUserEl.value.trim(), loginPasswordEl.value);
+      showApp(data.username);
+      updateLiveCount();
+      render();
+      await loadGithub(true);
+    } catch (e) {
+      loginError.textContent = e.message || "Не удалось войти";
+    } finally {
+      loginButton.disabled = false;
+      loginButton.textContent = "Войти";
+    }
+  });
+
+  logoutButton.addEventListener("click", logout);
+
+
   var listEl = $("list"), form = $("composer"), titleEl = $("title"), bodyEl = $("body");
   var searchEl = $("search"), cancelEl = $("cancel"), countEl = $("count"), liveCount = $("live-count");
   var syncStatus = $("sync-status");
@@ -571,6 +716,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
     var res = await fetch(WORKER_URL, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         "X-Buffer-Key": BUFFER_KEY
@@ -610,6 +756,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       }
 
       var res = await fetch(WORKER_URL + "?t=" + Date.now(), {
+        credentials: "include",
         headers: { "X-Buffer-Key": BUFFER_KEY },
         cache: "no-store"
       });
@@ -680,8 +827,22 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   if (stored !== null) { items = stored; }
   else { items = []; }
   updateLiveCount();
-  render();
-  loadGithub(false);
+
+  (async function () {
+    try {
+      var auth = await checkAuth();
+      if (auth && auth.authenticated) {
+        showApp(auth.username);
+        render();
+        await loadGithub(true);
+      } else {
+        showLogin();
+      }
+    } catch (e) {
+      showLogin();
+      loginError.textContent = "Не удалось проверить авторизацию";
+    }
+  })();
   setInterval(function () {
     var changed = purgeExpired(true);
     if (changed) {
