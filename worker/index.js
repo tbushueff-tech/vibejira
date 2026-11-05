@@ -321,7 +321,7 @@ export default {
         );
       } catch (e) {
         console.error("Registration failed:", e);
-        return json({ ok: false, error: "Не удалось создать аккаунт" }, 500, origin);
+        return json({ ok: false, error: "Не удалось создать аккаунт: " + String(e && e.message ? e.message : e) }, 500, origin);
       }
     }
 
