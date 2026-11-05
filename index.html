@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Буфер текстов</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: одна колонка до 980px. Сверху заголовок и поиск, ниже форма добавления, затем сетка карточек (1–2 колонки) с кнопкой «Копировать» в каждой. */
+:root {
+  --bg: #ecf0f4;
+  --surface: #ffffff;
+  --surface-2: #f4f7fa;
+  --fg: #111a24;
+  --muted: #566475;
+  --line: #d3dae3;
+  --accent: #0a6b58;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe9;
+  --danger: #b3261e;
+  --font-display: "Unbounded", "Onest", system-ui, sans-serif;
+  --font-body: "Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141b;
+    --surface: #16202a;
+    --surface-2: #1b2733;
+    --fg: #e5ebf2;
+    --muted: #93a1b1;
+    --line: #28343f;
+    --accent: #3fd1a8;
+    --accent-ink: #062a21;
+    --accent-soft: #14352d;
+    --danger: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141b;
+  --surface: #16202a;
+  --surface-2: #1b2733;
+  --fg: #e5ebf2;
+  --muted: #93a1b1;
+  --line: #28343f;
+  --accent: #3fd1a8;
+  --accent-ink: #062a21;
+  --accent-soft: #14352d;
+  --danger: #ff8a80;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.brand { min-width: 0; }
+h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-wrap: balance;
+}
+.lead { margin: 6px 0 0; color: var(--muted); max-width: 52ch; }
+.search { flex: 1 1 240px; max-width: 340px; min-width: 0; }
+
+label.cap {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+input[type="text"], input[type="search"], textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-height: 42px;
+}
+textarea { resize: vertical; min-height: 120px; font-family: var(--font-mono); font-size: 13px; line-height: 1.55; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input:focus-visible, textarea:focus-visible { outline-offset: 0; border-color: var(--accent); }
+
+.composer {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.composer h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.composer.editing { border-color: var(--accent); }
+.fields { display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.row .hint { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+button {
+  font: inherit;
+  font-weight: 500;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+button:hover { background: var(--surface-2); border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.primary:hover { filter: brightness(1.08); background: var(--accent); }
+button.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 0 12px; }
+button.ghost:hover { color: var(--fg); background: var(--surface-2); border-color: transparent; }
+button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.card {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-width: 0; }
+.card-title { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.badge {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+.snippet {
+  margin: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+.snippet.open { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: auto; max-height: 420px; }
+.more { align-self: flex-start; min-height: 28px; padding: 0 2px; border: 0; background: none; color: var(--accent); font-size: 13px; }
+.more:hover { background: none; text-decoration: underline; }
+.meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.copy { flex: 1 1 150px; font-weight: 600; }
+.copy.done { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.empty {
+  grid-column: 1 / -1;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 12px);
+  max-width: min(92vw, 460px);
+  background: var(--fg);
+  color: var(--bg);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+  z-index: 20;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Буфер текстов</h1>
+      <p class="lead">Храните готовые фразы, ссылки и реквизиты. Один клик копирует текст в буфер обмена.</p>
+    </div>
+    <div class="search">
+      <label class="cap" for="search">Поиск</label>
+      <input type="search" id="search" placeholder="Название или слово из текста" autocomplete="off">
+    </div>
+  </header>
+
+  <form class="composer" id="composer" autocomplete="off">
+    <h2 id="composer-title">Новый текст</h2>
+    <div class="fields">
+      <div>
+        <label class="cap" for="title">Название (по желанию)</label>
+        <input type="text" id="title" maxlength="80" placeholder="Например, «Ответ на запрос цены»">
+      </div>
+      <div>
+        <label class="cap" for="body">Текст</label>
+        <textarea id="body" placeholder="Вставьте или напишите текст"></textarea>
+      </div>
+    </div>
+    <div class="row">
+      <button type="submit" class="primary" id="save">Сохранить</button>
+      <button type="button" id="cancel" hidden>Отменить</button>
+      <span class="hint" id="live-count">0 симв.</span>
+    </div>
+  </form>
+
+  <div class="status"><span id="count"></span><span>Хранится в этом браузере</span></div>
+  <section class="grid" id="list" aria-label="Сохранённые тексты"></section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  var KEY = "bufer-tekstov-v1";
+  var items = [];
+  var editingId = null;
+  var query = "";
+  var toastTimer = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var listEl = $("list"), form = $("composer"), titleEl = $("title"), bodyEl = $("body");
+  var searchEl = $("search"), cancelEl = $("cancel"), countEl = $("count"), liveCount = $("live-count");
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+  function plural(n, forms) {
+    var a = Math.abs(n) % 100, b = a % 10;
+    if (a > 10 && a < 20) return forms[2];
+    if (b > 1 && b < 5) return forms[1];
+    if (b === 1) return forms[0];
+    return forms[2];
+  }
+  function words(t) { var s = t.trim(); return s ? s.split(/\s+/).length : 0; }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw === null) return null;
+      var a = JSON.parse(raw);
+      return Array.isArray(a) ? a : null;
+    } catch (e) { return null; }
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {} }
+
+  function seed() {
+    return [
+      { id: uid(), title: "Приветствие для письма", example: true, copies: 0,
+        text: "Здравствуйте!\n\nСпасибо за обращение. Отвечу в течение рабочего дня.\n\nС уважением," },
+      { id: uid(), title: "Ответ на запрос цены", example: true, copies: 0,
+        text: "Добрый день! Стоимость зависит от объёма работ. Пришлите, пожалуйста, краткое описание задачи и желаемые сроки, и я подготовлю расчёт." },
+      { id: uid(), title: "Реквизиты для перевода", example: true, copies: 0,
+        text: "Получатель: Иванов Иван Иванович\nБанк: Пример-Банк\nСчёт: 40817 810 0 0000 0000000\nНазначение: оплата по счёту № 12 от 05.11.2026" },
+      { id: uid(), title: "Ссылка на встречу", example: true, copies: 0,
+        text: "https://example.com/meet/room-42\nНачало в 11:00 (Екатеринбург), подключаться за 5 минут." }
+    ];
+  }
+
+  function toast(msg) {
+    var el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2200);
+  }
+
+  function copyText(text) {
+    var p;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        p = navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
+      }
+    } catch (e) { p = null; }
+    return Promise.resolve(p || false).then(function (ok) {
+      if (ok) return true;
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        var done = document.execCommand("copy");
+        ta.remove();
+        return !!done;
+      } catch (e) { return false; }
+    });
+  }
+
+  function selectNode(node) {
+    try {
+      var r = document.createRange();
+      r.selectNodeContents(node);
+      var s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    } catch (e) {}
+  }
+
+  function metaText(it) {
+    var n = it.text.length;
+    var w = words(it.text);
+    var c = it.copies || 0;
+    return n + " симв. · " + w + " " + plural(w, ["слово", "слова", "слов"]) +
+      " · скопировано " + c + " " + plural(c, ["раз", "раза", "раз"]);
+  }
+
+  function matches(it) {
+    if (!query) return true;
+    var q = query.toLowerCase();
+    return (it.title || "").toLowerCase().indexOf(q) !== -1 || it.text.toLowerCase().indexOf(q) !== -1;
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function buildCard(it) {
+    var card = el("article", "card");
+
+    var head = el("div", "card-head");
+    head.appendChild(el("h3", "card-title", it.title || "Без названия"));
+    if (it.example) head.appendChild(el("span", "badge", "пример"));
+    card.appendChild(head);
+
+    var pre = el("pre", "snippet", it.text);
+    card.appendChild(pre);
+
+    var lines = it.text.split("\n").length;
+    if (it.text.length > 260 || lines > 6) {
+      var more = el("button", "more", "Показать полностью");
+      more.type = "button";
+      more.addEventListener("click", function () {
+        var open = pre.classList.toggle("open");
+        more.textContent = open ? "Свернуть" : "Показать полностью";
+      });
+      card.appendChild(more);
+    }
+
+    var meta = el("div", "meta", metaText(it));
+    card.appendChild(meta);
+
+    var actions = el("div", "actions");
+    var copy = el("button", "primary copy", "Копировать");
+    copy.type = "button";
+    copy.addEventListener("click", function () {
+      copyText(it.text).then(function (ok) {
+        if (ok) {
+          it.copies = (it.copies || 0) + 1;
+          save();
+          meta.textContent = metaText(it);
+          copy.textContent = "Скопировано";
+          copy.classList.remove("primary");
+          copy.classList.add("done");
+          toast("Текст скопирован");
+          setTimeout(function () {
+            copy.textContent = "Копировать";
+            copy.classList.remove("done");
+            copy.classList.add("primary");
+          }, 1600);
+        } else {
+          pre.classList.add("open");
+          selectNode(pre);
+          toast("Не удалось скопировать сам. Текст выделен, нажмите Ctrl+C");
+        }
+      });
+    });
+    actions.appendChild(copy);
+
+    var edit = el("button", "ghost", "Изменить");
+    edit.type = "button";
+    edit.addEventListener("click", function () { startEdit(it.id); });
+    actions.appendChild(edit);
+
+    var del = el("button", "ghost danger", "Удалить");
+    del.type = "button";
+    var armTimer = null;
+    del.addEventListener("click", function () {
+      if (!del.classList.contains("armed")) {
+        del.classList.add("armed");
+        del.textContent = "Удалить насовсем?";
+        armTimer = setTimeout(function () {
+          del.classList.remove("armed");
+          del.textContent = "Удалить";
+        }, 3000);
+        return;
+      }
+      clearTimeout(armTimer);
+      items = items.filter(function (x) { return x.id !== it.id; });
+      if (editingId === it.id) stopEdit();
+      save();
+      render();
+      toast("Текст удалён");
+    });
+    actions.appendChild(del);
+
+    card.appendChild(actions);
+    return card;
+  }
+
+  function render() {
+    listEl.textContent = "";
+    var shown = items.filter(matches);
+    shown.forEach(function (it) { listEl.appendChild(buildCard(it)); });
+
+    if (!shown.length) {
+      var msg = items.length
+        ? "Ничего не найдено. Попробуйте другое слово."
+        : "Здесь пока пусто. Добавьте первый текст в форме выше.";
+      listEl.appendChild(el("div", "empty", msg));
+    }
+    var n = items.length;
+    countEl.textContent = query
+      ? "Найдено " + shown.length + " из " + n
+      : n + " " + plural(n, ["текст", "текста", "текстов"]);
+  }
+
+  function updateLiveCount() {
+    var t = bodyEl.value;
+    liveCount.textContent = t.length + " симв. · " + words(t) + " " + plural(words(t), ["слово", "слова", "слов"]);
+  }
+
+  function startEdit(id) {
+    var it = items.filter(function (x) { return x.id === id; })[0];
+    if (!it) return;
+    editingId = id;
+    titleEl.value = it.title || "";
+    bodyEl.value = it.text;
+    $("composer-title").textContent = "Редактирование";
+    $("save").textContent = "Сохранить изменения";
+    cancelEl.hidden = false;
+    form.classList.add("editing");
+    updateLiveCount();
+    form.scrollIntoView({ behavior: "smooth", block: "center" });
+    bodyEl.focus();
+  }
+
+  function stopEdit() {
+    editingId = null;
+    form.reset();
+    $("composer-title").textContent = "Новый текст";
+    $("save").textContent = "Сохранить";
+    cancelEl.hidden = true;
+    form.classList.remove("editing");
+    updateLiveCount();
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = bodyEl.value.replace(/\s+$/, "");
+    var title = titleEl.value.trim();
+    if (!text.trim()) {
+      toast("Введите текст, который нужно сохранить");
+      bodyEl.focus();
+      return;
+    }
+    if (editingId) {
+      items = items.map(function (x) {
+        if (x.id !== editingId) return x;
+        return { id: x.id, title: title, text: text, copies: x.copies || 0 };
+      });
+      toast("Изменения сохранены");
+    } else {
+      items.unshift({ id: uid(), title: title, text: text, copies: 0 });
+      toast("Текст сохранён");
+    }
+    save();
+    stopEdit();
+    render();
+  });
+
+  cancelEl.addEventListener("click", stopEdit);
+  bodyEl.addEventListener("input", updateLiveCount);
+  bodyEl.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      form.requestSubmit ? form.requestSubmit() : $("save").click();
+    }
+  });
+  searchEl.addEventListener("input", function () {
+    query = searchEl.value.trim();
+    render();
+  });
+
+  var stored = load();
+  if (stored === null) { items = seed(); save(); } else { items = stored; }
+  updateLiveCount();
+  render();
+})();
+</script>
+
+</body>
+</html>
