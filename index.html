@@ -419,6 +419,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     var head = el("div", "card-head");
     head.appendChild(el("h3", "card-title", it.title || "Без названия"));
     if (it.example) head.appendChild(el("span", "badge", "пример"));
+    if (it.expiresAt) {
+      var left = Math.max(0, Math.ceil((it.expiresAt - Date.now()) / 1000));
+      var em = el("span", "expiry", "⏱ " + Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0"));
+      head.appendChild(em);
+    }
     card.appendChild(head);
 
     var pre = el("pre", "snippet", it.text);
