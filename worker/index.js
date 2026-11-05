@@ -6,15 +6,20 @@ const AUTO_DELETE_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function corsHeaders(origin) {
-  const allowed = origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN;
-  return {
-    "Access-Control-Allow-Origin": allowed,
+  const headers = {
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, X-Buffer-Key",
+    "Access-Control-Max-Age": "86400",
     "Cache-Control": "no-store",
     "Vary": "Origin"
   };
+
+  if (origin === ALLOWED_ORIGIN) {
+    headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN;
+  }
+
+  return headers;
 }
 
 function json(data, status, origin, extraHeaders) {
@@ -234,6 +239,9 @@ export default {
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
+      if (origin !== ALLOWED_ORIGIN) {
+        return new Response(null, { status: 403, headers: corsHeaders(origin) });
+      }
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
@@ -241,8 +249,14 @@ export default {
 
     if (url.pathname === "/auth/register" && request.method === "POST") {
       try {
+        if (origin !== ALLOWED_ORIGIN) {
+          return json({ ok: false, error: "Недопустимый источник запроса" }, 403, origin);
+        }
         if (!env.USER_STORE) {
           return json({ ok: false, error: "Регистрация не настроена: USER_STORE отсутствует" }, 503, origin);
+        }
+        if (!env.AUTH_SECRET) {
+          return json({ ok: false, error: "Регистрация не настроена: AUTH_SECRET отсутствует" }, 503, origin);
         }
 
         const data = await request.json();
@@ -285,6 +299,9 @@ export default {
 
     if (url.pathname === "/auth/login" && request.method === "POST") {
       try {
+        if (origin !== ALLOWED_ORIGIN) {
+          return json({ ok: false, error: "Недопустимый источник запроса" }, 403, origin);
+        }
         const data = await request.json();
         const username = String(data.username || "");
         const password = String(data.password || "");
