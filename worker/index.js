@@ -10,7 +10,7 @@ function corsHeaders(origin, request) {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Buffer-Key",
+    "Access-Control-Allow-Headers": "Content-Type, X-Buffer-Key, Authorization",
     "Access-Control-Max-Age": "86400",
     "Cache-Control": "no-store",
     "Vary": "Origin"
@@ -181,6 +181,34 @@ async function createSession(username, env) {
 
 async function verifySession(request, env) {
   if (!env.AUTH_SECRET) return null;
+
+  const auth = request.headers.get("Authorization") || "";
+  if (auth.startsWith("Bearer ")) {
+    const token = auth.slice(7).trim();
+    const parts = token.split(".");
+    if (parts.length === 2) {
+      try {
+        const bodyBytes = base64urlDecode(parts[0]);
+        const body = new TextDecoder().decode(bodyBytes);
+        const payload = JSON.parse(body);
+        if (!payload.username || !payload.exp || payload.exp <= Date.now()) return null;
+
+        return hmacKey(env.AUTH_SECRET).then(async key => {
+          const signature = base64urlDecode(parts[1]);
+          const valid = await crypto.subtle.verify(
+            "HMAC",
+            key,
+            signature,
+            new TextEncoder().encode(parts[0])
+          );
+          return valid ? payload : null;
+        });
+      } catch (e) {
+        return null;
+      }
+    }
+  }
+
   const cookie = request.headers.get("Cookie") || "";
   const match = cookie.match(/(?:^|;\s*)buffer_session=([^;]+)/);
   if (!match) return null;
@@ -286,10 +314,9 @@ export default {
 
         const token = await createSession(username, env);
         return json(
-          { ok: true, username },
+          { ok: true, username, token },
           201,
-          origin,
-          { "Set-Cookie": sessionCookie(token) }
+          origin
         );
       } catch (e) {
         console.error("Registration failed:", e);
@@ -330,10 +357,9 @@ export default {
 
         const token = await createSession(username, env);
         return json(
-          { ok: true, username },
+          { ok: true, username, token },
           200,
-          origin,
-          { "Set-Cookie": sessionCookie(token) }
+          origin
         );
       } catch (e) {
         return json({ ok: false, error: "Некорректный запрос" }, 400, origin);
