@@ -284,6 +284,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   var toastTimer = null;
   var githubReady = false;
   var pending = false;
+  var AUTO_DELETE_MS = 5 * 60 * 1000;
 
   var $ = function (id) { return document.getElementById(id); };
   var listEl = $("list"), form = $("composer"), titleEl = $("title"), bodyEl = $("body");
@@ -310,6 +311,29 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   }
   function saveLocal() {
     try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {}
+  }
+
+  function purgeExpired(localOnly) {
+    var now = Date.now();
+    var before = items.length;
+    items = items.filter(function (it) {
+      return !it.expiresAt || it.expiresAt > now;
+    });
+    var removed = before !== items.length;
+    if (removed) saveLocal();
+    return removed;
+  }
+
+  function ensureExpiry(itemsList) {
+    var now = Date.now();
+    var changed = false;
+    itemsList.forEach(function (it) {
+      if (!it.expiresAt) {
+        it.expiresAt = now + AUTO_DELETE_MS;
+        changed = true;
+      }
+    });
+    return changed;
   }
   function setStatus(text) { if (syncStatus) syncStatus.textContent = text; }
 
@@ -370,8 +394,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
   function metaText(it) {
     var n = it.text.length, w = words(it.text), c = it.copies || 0;
+    var left = it.expiresAt ? Math.max(0, Math.ceil((it.expiresAt - Date.now()) / 1000)) : 0;
+    var mins = Math.floor(left / 60), secs = left % 60;
+    var expiry = it.expiresAt ? " · удалится через " + mins + ":" + String(secs).padStart(2, "0") : "";
     return n + " симв. · " + w + " " + plural(w, ["слово", "слова", "слов"]) +
-      " · скопировано " + c + " " + plural(c, ["раз", "раза", "раз"]);
+      " · скопировано " + c + " " + plural(c, ["раз", "раза", "раз"]) + expiry;
   }
 
   function matches(it) {
@@ -471,6 +498,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   }
 
   function render() {
+    purgeExpired(true);
     listEl.textContent = "";
     var shown = items.filter(matches);
     shown.forEach(function (it) { listEl.appendChild(buildCard(it)); });
@@ -584,6 +612,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       var data = await res.json();
       if (!Array.isArray(data)) throw new Error("Invalid data");
       items = data;
+      var expiryChanged = ensureExpiry(items);
+      var expiredRemoved = purgeExpired(true);
+      if (expiryChanged || expiredRemoved) {
+        await saveGithub();
+      }
       saveLocal();
       githubReady = true;
       setStatus("Синхронизировано через GitHub");
@@ -615,7 +648,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       toast("Изменения сохранены локально");
       queueChange("update", it);
     } else {
-      var newItem = { id: uid(), title: title, text: text, copies: 0 };
+      var newItem = { id: uid(), title: title, text: text, copies: 0, expiresAt: Date.now() + AUTO_DELETE_MS };
       items.unshift(newItem);
       saveLocal();
       render();
@@ -644,6 +677,16 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   updateLiveCount();
   render();
   loadGithub(false);
+  setInterval(function () {
+    var changed = purgeExpired(true);
+    if (changed) {
+      render();
+      queueChange("delete-expired", null);
+    } else {
+      render();
+    }
+  }, 1000);
+
   setInterval(function () { loadGithub(false); }, 5000);
 })();
 </script>
