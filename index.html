@@ -399,7 +399,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     var res = await fetch(AUTH_URL + "/auth/register", {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify({ username: username, password: password })
     });
     var data = {};
@@ -412,7 +412,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     var res = await fetch(AUTH_URL + "/auth/login", {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify({ username: username, password: password })
     });
     var data = {};
