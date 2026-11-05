@@ -517,7 +517,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   // ВАЖНО: сюда вставляется Fine-grained GitHub token с правом
   // Contents: Read and write только для репозитория tbushueff-tech/vibejira.
   // Не используйте основной аккаунтный токен.
-  var GITHUB_TOKEN = "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";
+  // GitHub token хранится только в Cloudflare Worker.
+  // После деплоя Worker укажи его адрес здесь.
+  var WORKER_URL = "https://REPLACE_WITH_YOUR_WORKER.workers.dev";
+  var BUFFER_KEY = "vibejira-buffer";
 
   function utf8b64(obj) {
     var bytes = new TextEncoder().encode(JSON.stringify(obj));
@@ -528,64 +531,39 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     return btoa(binary);
   }
 
-  function githubHeaders() {
-    return {
-      "Accept": "application/vnd.github+json",
-      "Content-Type": "application/json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "Authorization": "Bearer " + GITHUB_TOKEN
-    };
-  }
-
   async function saveGithub() {
-    if (!GITHUB_TOKEN || GITHUB_TOKEN === "PASTE_GITHUB_TOKEN_HERE") {
-      throw new Error("GitHub token не задан");
+    if (!WORKER_URL || WORKER_URL.indexOf("REPLACE_WITH_YOUR_WORKER") !== -1) {
+      throw new Error("Адрес Cloudflare Worker ещё не указан");
     }
 
-    var apiUrl = "https://api.github.com/repos/" + REPO + "/contents/data/texts.json";
-
-    // Получаем актуальный SHA файла, чтобы GitHub принял update.
-    var currentRes = await fetch(apiUrl + "?ref=main&t=" + Date.now(), {
-      headers: githubHeaders(),
-      cache: "no-store"
-    });
-    if (!currentRes.ok) throw new Error("GET contents HTTP " + currentRes.status);
-
-    var current = await currentRes.json();
-    var contentBase64 = utf8b64(items);
-
-    var updateRes = await fetch(apiUrl, {
-      method: "PUT",
-      headers: githubHeaders(),
-      body: JSON.stringify({
-        message: "Update text buffer",
-        content: contentBase64,
-        sha: current.sha,
-        branch: "main"
-      })
+    var res = await fetch(WORKER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Buffer-Key": BUFFER_KEY
+      },
+      body: JSON.stringify(items)
     });
 
-    if (!updateRes.ok) {
-      var errorText = await updateRes.text();
-      throw new Error("PUT contents HTTP " + updateRes.status + ": " + errorText);
+    if (!res.ok) {
+      var body = await res.text();
+      throw new Error("Worker HTTP " + res.status + ": " + body);
     }
-
-    return updateRes.json();
   }
 
   async function queueChange(op, item) {
     pending = true;
-    setStatus("Сохранение в GitHub…");
+    setStatus("Сохранение в облако…");
 
     try {
       await saveGithub();
       saveLocal();
       setStatus("Синхронизировано через GitHub");
-      toast("Сохранено в GitHub");
+      toast("Сохранено");
     } catch (e) {
       console.error(e);
-      setStatus("Ошибка записи в GitHub");
-      toast("Не удалось сохранить в GitHub: " + e.message);
+      setStatus("Ошибка синхронизации");
+      toast("Не удалось сохранить: " + e.message);
     } finally {
       pending = false;
     }
@@ -594,8 +572,15 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   async function loadGithub(force) {
     if (pending && !force) return;
     try {
-      var res = await fetch(DATA_URL + "?v=" + Date.now(), { cache: "no-store" });
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (!WORKER_URL || WORKER_URL.indexOf("REPLACE_WITH_YOUR_WORKER") !== -1) {
+        throw new Error("Адрес Cloudflare Worker ещё не указан");
+      }
+
+      var res = await fetch(WORKER_URL + "?t=" + Date.now(), {
+        headers: { "X-Buffer-Key": BUFFER_KEY },
+        cache: "no-store"
+      });
+      if (!res.ok) throw new Error("Worker HTTP " + res.status);
       var data = await res.json();
       if (!Array.isArray(data)) throw new Error("Invalid data");
       items = data;
@@ -605,7 +590,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       render();
     } catch (e) {
       githubReady = false;
-      setStatus("GitHub недоступен");
+      setStatus("Облако недоступно");
       console.error(e);
     }
   }
