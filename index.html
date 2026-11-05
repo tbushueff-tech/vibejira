@@ -366,6 +366,13 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   var registerMode = false;
   var authUserEl = $("auth-user");
   var logoutButton = $("logout");
+  var authToken = localStorage.getItem("buffer_auth_token") || "";
+
+  function authHeaders(extra) {
+    var h = extra || {};
+    if (authToken) h["Authorization"] = "Bearer " + authToken;
+    return h;
+  }
 
   function showApp(username) {
     loginScreen.style.display = "none";
@@ -388,7 +395,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   async function checkAuth() {
     var res = await fetch(AUTH_URL + "/auth/me", {
       method: "GET",
-      credentials: "include",
+      headers: authHeaders(),
       cache: "no-store"
     });
     if (!res.ok) return null;
@@ -398,26 +405,28 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   async function register(username, password) {
     var res = await fetch(AUTH_URL + "/auth/register", {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify({ username: username, password: password })
     });
     var data = {};
     try { data = await res.json(); } catch (e) {}
     if (!res.ok) throw new Error(data.error || "Не удалось зарегистрироваться");
+    authToken = data.token || "";
+    if (authToken) localStorage.setItem("buffer_auth_token", authToken);
     return data;
   }
 
   async function login(username, password) {
     var res = await fetch(AUTH_URL + "/auth/login", {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify({ username: username, password: password })
     });
     var data = {};
     try { data = await res.json(); } catch (e) {}
     if (!res.ok) throw new Error(data.error || "Неверный логин или пароль");
+    authToken = data.token || "";
+    if (authToken) localStorage.setItem("buffer_auth_token", authToken);
     return data;
   }
 
@@ -425,9 +434,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     try {
       await fetch(AUTH_URL + "/auth/logout", {
         method: "POST",
-        credentials: "include"
+        headers: authHeaders()
       });
     } catch (e) {}
+    authToken = "";
+    localStorage.removeItem("buffer_auth_token");
     showLogin();
   }
 
@@ -762,10 +773,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     var res = await fetch(WORKER_URL, {
       method: "POST",
       credentials: "include",
-      headers: {
+      headers: authHeaders({
         "Content-Type": "application/json",
         "X-Buffer-Key": BUFFER_KEY
-      },
+      }),
       body: JSON.stringify(items)
     });
 
@@ -802,7 +813,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
       var res = await fetch(WORKER_URL + "?t=" + Date.now(), {
         credentials: "include",
-        headers: { "X-Buffer-Key": BUFFER_KEY },
+        headers: authHeaders({ "X-Buffer-Key": BUFFER_KEY }),
         cache: "no-store"
       });
       if (!res.ok) throw new Error("Worker HTTP " + res.status);
