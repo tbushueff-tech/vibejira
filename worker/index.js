@@ -36,12 +36,58 @@ async function githubFetch(url, options, env) {
   });
 }
 
+async function cleanupExpired(env) {
+  const res = await githubFetch(API_BASE + "?ref=main&t=" + Date.now(), {}, env);
+  if (!res.ok) throw new Error("GitHub GET " + res.status);
+  const file = await res.json();
+  const decoded = atob(file.content.replace(/\n/g, ""));
+  const bytes = Uint8Array.from(decoded, c => c.charCodeAt(0));
+  const data = new TextDecoder().decode(bytes);
+  const items = JSON.parse(data);
+  if (!Array.isArray(items)) return false;
+
+  const now = Date.now();
+  const filtered = items.filter(it => !it.expiresAt || it.expiresAt > now);
+  if (filtered.length === items.length) return false;
+
+  const outBytes = new TextEncoder().encode(JSON.stringify(filtered, null, 2) + "\n");
+  let binary = "";
+  for (let i = 0; i < outBytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...outBytes.subarray(i, i + 0x8000));
+  }
+
+  const updateRes = await githubFetch(API_BASE, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "Auto-delete expired texts",
+      content: btoa(binary),
+      sha: file.sha,
+      branch: "main"
+    })
+  }, env);
+
+  if (!updateRes.ok) {
+    const body = await updateRes.text();
+    throw new Error("GitHub PUT " + updateRes.status + ": " + body);
+  }
+  return true;
+}
+
 function checkKey(request, env) {
   const key = request.headers.get("X-Buffer-Key");
   return !!env.BUFFER_KEY && key === env.BUFFER_KEY;
 }
 
 export default {
+  async scheduled(controller, env) {
+    try {
+      await cleanupExpired(env);
+    } catch (e) {
+      console.error("Auto-delete failed:", e);
+    }
+  },
+
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
 
