@@ -5,8 +5,9 @@ const ALLOWED_ORIGIN = "https://tbushueff-tech.github.io";
 const AUTO_DELETE_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-function corsHeaders(origin) {
+function corsHeaders(origin, request) {
   const headers = {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, X-Buffer-Key",
@@ -15,9 +16,8 @@ function corsHeaders(origin) {
     "Vary": "Origin"
   };
 
-  if (origin === ALLOWED_ORIGIN) {
-    headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN;
-  }
+  const requestedHeaders = request && request.headers.get("Access-Control-Request-Headers");
+  if (requestedHeaders) headers["Access-Control-Allow-Headers"] = requestedHeaders;
 
   return headers;
 }
@@ -27,7 +27,7 @@ function json(data, status, origin, extraHeaders) {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      ...corsHeaders(origin),
+      ...corsHeaders(origin, request),
       ...(extraHeaders || {})
     }
   });
@@ -240,9 +240,9 @@ export default {
 
     if (request.method === "OPTIONS") {
       if (origin !== ALLOWED_ORIGIN) {
-        return new Response(null, { status: 403, headers: corsHeaders(origin) });
+        return new Response(null, { status: 403, headers: corsHeaders(origin, request) });
       }
-      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      return new Response(null, { status: 204, headers: corsHeaders(origin, request) });
     }
 
     const url = new URL(request.url);
@@ -397,7 +397,7 @@ export default {
           status: 200,
           headers: {
             "Content-Type": "application/json; charset=utf-8",
-            ...corsHeaders(origin)
+            ...corsHeaders(origin, request)
           }
         });
       }
