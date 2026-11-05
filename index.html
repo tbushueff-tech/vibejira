@@ -608,37 +608,49 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     return true;
   }
 
-  function subscribeRealtime() {
-    if (!sb) return;
-    sb.channel("texts-sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "texts" }, function (payload) {
-        var row = payload.new || payload.old;
-        if (!row || !row.id) return;
+  // Fallback synchronization over HTTPS. Some corporate networks block WebSocket.
+  var pollTimer = null;
+  var pollBusy = false;
 
-        if (payload.eventType === "INSERT") {
-          if (!items.some(function (x) { return x.cloudId === row.id || x.id === row.id; })) {
-            items.push({
-              id: row.id, cloudId: row.id, title: row.title || "", text: row.text || "",
-              copies: row.copies || 0, created_at: row.created_at, updated_at: row.updated_at
-            });
-            saveLocal();
-            render();
-          }
-        } else if (payload.eventType === "UPDATE") {
-          items = items.map(function (x) {
-            return (x.cloudId === row.id || x.id === row.id)
-              ? Object.assign({}, x, { cloudId: row.id, id: row.id, title: row.title || "", text: row.text || "", copies: row.copies || 0, updated_at: row.updated_at })
-              : x;
-          });
-          saveLocal();
-          render();
-        } else if (payload.eventType === "DELETE") {
-          items = items.filter(function (x) { return x.cloudId !== row.id && x.id !== row.id; });
-          saveLocal();
-          render();
-        }
-      })
-      .subscribe();
+  async function pollCloud() {
+    if (!sb || pollBusy) return;
+    pollBusy = true;
+    try {
+      var result = await sb.from("texts")
+        .select("id,title,text,copies,created_at,updated_at")
+        .order("created_at", { ascending: false });
+
+      if (result.error) {
+        setStatus("Облако недоступно");
+        console.error(result.error);
+        return;
+      }
+
+      var cloud = result.data || [];
+      var nextItems = cloud.map(function (x) {
+        return {
+          id: x.id,
+          cloudId: x.id,
+          title: x.title || "",
+          text: x.text || "",
+          copies: x.copies || 0,
+          created_at: x.created_at,
+          updated_at: x.updated_at
+        };
+      });
+
+      items = nextItems;
+      saveLocal();
+      setStatus("Синхронизировано с облаком");
+      render();
+    } finally {
+      pollBusy = false;
+    }
+  }
+
+  function startCloudPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollCloud, 3000);
   }
 
   async function initCloud() {
@@ -649,7 +661,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
         try {
           sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
           await loadCloud();
-          subscribeRealtime();
+          startCloudPolling();
         } catch (e) {
           setStatus("Ошибка подключения к облаку");
           console.error(e);
