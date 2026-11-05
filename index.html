@@ -514,6 +514,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     updateLiveCount();
   }
 
+  // ВАЖНО: сюда вставляется Fine-grained GitHub token с правом
+  // Contents: Read and write только для репозитория tbushueff-tech/vibejira.
+  // Не используйте основной аккаунтный токен.
+  var GITHUB_TOKEN = "PASTE_GITHUB_TOKEN_HERE";
+
   function utf8b64(obj) {
     var bytes = new TextEncoder().encode(JSON.stringify(obj));
     var binary = "";
@@ -523,24 +528,67 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     return btoa(binary);
   }
 
-  function queueChange(op, item) {
+  function githubHeaders() {
+    return {
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Authorization": "Bearer " + GITHUB_TOKEN
+    };
+  }
+
+  async function saveGithub() {
+    if (!GITHUB_TOKEN || GITHUB_TOKEN === "PASTE_GITHUB_TOKEN_HERE") {
+      throw new Error("GitHub token не задан");
+    }
+
+    var apiUrl = "https://api.github.com/repos/" + REPO + "/contents/data/texts.json";
+
+    // Получаем актуальный SHA файла, чтобы GitHub принял update.
+    var currentRes = await fetch(apiUrl + "?ref=main&t=" + Date.now(), {
+      headers: githubHeaders(),
+      cache: "no-store"
+    });
+    if (!currentRes.ok) throw new Error("GET contents HTTP " + currentRes.status);
+
+    var current = await currentRes.json();
+    var contentBase64 = utf8b64(items);
+
+    var updateRes = await fetch(apiUrl, {
+      method: "PUT",
+      headers: githubHeaders(),
+      body: JSON.stringify({
+        message: "Update text buffer",
+        content: contentBase64,
+        sha: current.sha,
+        branch: "main"
+      })
+    });
+
+    if (!updateRes.ok) {
+      var errorText = await updateRes.text();
+      throw new Error("PUT contents HTTP " + updateRes.status + ": " + errorText);
+    }
+
+    return updateRes.json();
+  }
+
+  async function queueChange(op, item) {
     pending = true;
     setStatus("Сохранение в GitHub…");
-    var payload = op === "delete"
-      ? { op: "delete", id: item.id }
-      : { op: op, item: { id: item.id, title: item.title || "", text: item.text || "", copies: item.copies || 0 } };
 
-    var title = "[BUFFER] " + op + " " + item.id;
-    var body = "Изменение буфера текстов.\n\n<!-- BUFFER_DATA:" + utf8b64(payload) + " -->";
-    var url = "https://github.com/" + REPO + "/issues/new?title=" + encodeURIComponent(title) +
-      "&body=" + encodeURIComponent(body);
-
-    window.open(url, "_blank", "noopener");
-    toast("Открыл GitHub — нажмите «Submit new issue»");
-    setTimeout(function () {
+    try {
+      await saveGithub();
+      saveLocal();
+      setStatus("Синхронизировано через GitHub");
+      toast("Сохранено в GitHub");
+    } catch (e) {
+      console.error(e);
+      setStatus("Ошибка записи в GitHub");
+      toast("Не удалось сохранить в GitHub: " + e.message);
+    } finally {
       pending = false;
-      loadGithub(true);
-    }, 10000);
+    }
   }
 
   async function loadGithub(force) {
