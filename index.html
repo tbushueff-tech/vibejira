@@ -268,7 +268,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     </div>
   </form>
 
-  <div class="status"><span id="count"></span><span>Хранится в этом браузере</span></div>
+  <div class="status"><span id="count"></span><span id="sync-status">Подключение к облаку…</span></div>
   <section class="grid" id="list" aria-label="Сохранённые тексты"></section>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -276,14 +276,20 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 <script>
 (function () {
   var KEY = "bufer-tekstov-v1";
+  var SUPABASE_URL = "https://nwfbzflmzjqdenhzobea.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_na0U55Dwcb1OzhDFRdRe9w_VMmHsB4S";
   var items = [];
   var editingId = null;
   var query = "";
   var toastTimer = null;
+  var cloudReady = false;
+  var syncing = false;
+  var sb = null;
 
   var $ = function (id) { return document.getElementById(id); };
   var listEl = $("list"), form = $("composer"), titleEl = $("title"), bodyEl = $("body");
   var searchEl = $("search"), cancelEl = $("cancel"), countEl = $("count"), liveCount = $("live-count");
+  var syncStatus = $("sync-status");
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
@@ -296,7 +302,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   }
   function words(t) { var s = t.trim(); return s ? s.split(/\s+/).length : 0; }
 
-  function load() {
+  function loadLocal() {
     try {
       var raw = localStorage.getItem(KEY);
       if (raw === null) return null;
@@ -304,7 +310,13 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       return Array.isArray(a) ? a : null;
     } catch (e) { return null; }
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {} }
+  function saveLocal() {
+    try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {}
+  }
+
+  function setStatus(text) {
+    if (syncStatus) syncStatus.textContent = text;
+  }
 
   function seed() {
     return [
@@ -384,7 +396,6 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
   function buildCard(it) {
     var card = el("article", "card");
-
     var head = el("div", "card-head");
     head.appendChild(el("h3", "card-title", it.title || "Без названия"));
     if (it.example) head.appendChild(el("span", "badge", "пример"));
@@ -414,12 +425,13 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       copyText(it.text).then(function (ok) {
         if (ok) {
           it.copies = (it.copies || 0) + 1;
-          save();
+          saveLocal();
           meta.textContent = metaText(it);
           copy.textContent = "Скопировано";
           copy.classList.remove("primary");
           copy.classList.add("done");
           toast("Текст скопирован");
+          if (cloudReady) updateCloud(it);
           setTimeout(function () {
             copy.textContent = "Копировать";
             copy.classList.remove("done");
@@ -455,9 +467,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       clearTimeout(armTimer);
       items = items.filter(function (x) { return x.id !== it.id; });
       if (editingId === it.id) stopEdit();
-      save();
+      saveLocal();
       render();
       toast("Текст удалён");
+      if (cloudReady) deleteCloud(it.id);
     });
     actions.appendChild(del);
 
@@ -512,7 +525,147 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     updateLiveCount();
   }
 
-  form.addEventListener("submit", function (e) {
+  async function updateCloud(it) {
+    if (!sb || !it || !it.cloudId) return;
+    var result = await sb.from("texts").update({
+      title: it.title || "",
+      text: it.text,
+      copies: it.copies || 0,
+      updated_at: new Date().toISOString()
+    }).eq("id", it.cloudId);
+    if (result.error) {
+      setStatus("Ошибка синхронизации");
+      console.error(result.error);
+    }
+  }
+
+  async function insertCloud(it) {
+    if (!sb || !it) return;
+    var row = {
+      title: it.title || "",
+      text: it.text,
+      copies: it.copies || 0
+    };
+    var result = await sb.from("texts").insert(row).select("id").single();
+    if (result.error) {
+      setStatus("Ошибка синхронизации");
+      console.error(result.error);
+      return;
+    }
+    it.cloudId = result.data.id;
+    saveLocal();
+  }
+
+  async function deleteCloud(id) {
+    if (!sb || !id) return;
+    var result = await sb.from("texts").delete().eq("id", id);
+    if (result.error) {
+      setStatus("Ошибка синхронизации");
+      console.error(result.error);
+    }
+  }
+
+  async function loadCloud() {
+    if (!sb) return false;
+    var result = await sb.from("texts").select("id,title,text,copies,created_at,updated_at").order("created_at", { ascending: false });
+    if (result.error) {
+      setStatus("Облако недоступно");
+      console.error(result.error);
+      return false;
+    }
+
+    var cloud = result.data || [];
+    if (!cloud.length) {
+      var local = loadLocal();
+      if (local && local.length) {
+        setStatus("Переносим данные в облако…");
+        for (var i = 0; i < local.length; i++) {
+          await insertCloud(local[i]);
+        }
+        items = local;
+      } else {
+        items = seed();
+        for (var j = 0; j < items.length; j++) await insertCloud(items[j]);
+      }
+    } else {
+      items = cloud.map(function (x) {
+        return {
+          id: x.id,
+          cloudId: x.id,
+          title: x.title || "",
+          text: x.text || "",
+          copies: x.copies || 0,
+          created_at: x.created_at,
+          updated_at: x.updated_at
+        };
+      });
+      saveLocal();
+    }
+
+    cloudReady = true;
+    setStatus("Синхронизировано с облаком");
+    render();
+    return true;
+  }
+
+  function subscribeRealtime() {
+    if (!sb) return;
+    sb.channel("texts-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "texts" }, function (payload) {
+        var row = payload.new || payload.old;
+        if (!row || !row.id) return;
+
+        if (payload.eventType === "INSERT") {
+          if (!items.some(function (x) { return x.cloudId === row.id || x.id === row.id; })) {
+            items.push({
+              id: row.id, cloudId: row.id, title: row.title || "", text: row.text || "",
+              copies: row.copies || 0, created_at: row.created_at, updated_at: row.updated_at
+            });
+            saveLocal();
+            render();
+          }
+        } else if (payload.eventType === "UPDATE") {
+          items = items.map(function (x) {
+            return (x.cloudId === row.id || x.id === row.id)
+              ? Object.assign({}, x, { cloudId: row.id, id: row.id, title: row.title || "", text: row.text || "", copies: row.copies || 0, updated_at: row.updated_at })
+              : x;
+          });
+          saveLocal();
+          render();
+        } else if (payload.eventType === "DELETE") {
+          items = items.filter(function (x) { return x.cloudId !== row.id && x.id !== row.id; });
+          saveLocal();
+          render();
+        }
+      })
+      .subscribe();
+  }
+
+  async function initCloud() {
+    try {
+      var s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+      s.onload = async function () {
+        try {
+          sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+          await loadCloud();
+          subscribeRealtime();
+        } catch (e) {
+          setStatus("Ошибка подключения к облаку");
+          console.error(e);
+        }
+      };
+      s.onerror = function () {
+        setStatus("Не удалось загрузить синхронизацию");
+      };
+      document.head.appendChild(s);
+    } catch (e) {
+      setStatus("Ошибка подключения к облаку");
+      console.error(e);
+    }
+  }
+
+  form.addEventListener("submit", async function (e) {
     e.preventDefault();
     var text = bodyEl.value.replace(/\s+$/, "");
     var title = titleEl.value.trim();
@@ -521,17 +674,23 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       bodyEl.focus();
       return;
     }
+
     if (editingId) {
+      var old = items.filter(function (x) { return x.id === editingId; })[0];
       items = items.map(function (x) {
         if (x.id !== editingId) return x;
-        return { id: x.id, title: title, text: text, copies: x.copies || 0 };
+        return Object.assign({}, x, { title: title, text: text, copies: x.copies || 0 });
       });
       toast("Изменения сохранены");
+      saveLocal();
+      if (cloudReady && old) await updateCloud(items.filter(function (x) { return x.id === editingId; })[0]);
     } else {
-      items.unshift({ id: uid(), title: title, text: text, copies: 0 });
+      var newItem = { id: uid(), title: title, text: text, copies: 0 };
+      items.unshift(newItem);
+      saveLocal();
       toast("Текст сохранён");
+      if (cloudReady) await insertCloud(newItem);
     }
-    save();
     stopEdit();
     render();
   });
@@ -549,12 +708,14 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     render();
   });
 
-  var stored = load();
-  if (stored === null) { items = seed(); save(); } else { items = stored; }
+  var stored = loadLocal();
+  if (stored !== null) { items = stored; }
+  else { items = []; }
   updateLiveCount();
   render();
+  initCloud();
 })();
-</script>
+</script>>
 
 </body>
 </html>
