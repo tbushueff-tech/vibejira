@@ -276,23 +276,21 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 <script>
 (function () {
   var KEY = "bufer-tekstov-v1";
-  var SUPABASE_URL = "https://nwfbzflmzjqdenhzobea.supabase.co";
-  var SUPABASE_KEY = "sb_publishable_na0U55Dwcb1OzhDFRdRe9w_VMmHsB4S";
+  var DATA_URL = "./data/texts.json";
+  var REPO = "tbushueff-tech/vibejira";
   var items = [];
   var editingId = null;
   var query = "";
   var toastTimer = null;
-  var cloudReady = false;
-  var syncing = false;
-  var sb = null;
+  var githubReady = false;
+  var pending = false;
 
   var $ = function (id) { return document.getElementById(id); };
   var listEl = $("list"), form = $("composer"), titleEl = $("title"), bodyEl = $("body");
   var searchEl = $("search"), cancelEl = $("cancel"), countEl = $("count"), liveCount = $("live-count");
   var syncStatus = $("sync-status");
 
-  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function plural(n, forms) {
     var a = Math.abs(n) % 100, b = a % 10;
     if (a > 10 && a < 20) return forms[2];
@@ -313,9 +311,14 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   function saveLocal() {
     try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {}
   }
+  function setStatus(text) { if (syncStatus) syncStatus.textContent = text; }
 
-  function setStatus(text) {
-    if (syncStatus) syncStatus.textContent = text;
+  function toast(msg) {
+    var el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2500);
   }
 
   function seed() {
@@ -331,21 +334,13 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     ];
   }
 
-  function toast(msg) {
-    var el = $("toast");
-    el.textContent = msg;
-    el.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2200);
-  }
-
   function copyText(text) {
     var p;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         p = navigator.clipboard.writeText(text).then(function () { return true; }, function () { return false; });
       }
-    } catch (e) { p = null; }
+    } catch (e) {}
     return Promise.resolve(p || false).then(function (ok) {
       if (ok) return true;
       try {
@@ -374,9 +369,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   }
 
   function metaText(it) {
-    var n = it.text.length;
-    var w = words(it.text);
-    var c = it.copies || 0;
+    var n = it.text.length, w = words(it.text), c = it.copies || 0;
     return n + " симв. · " + w + " " + plural(w, ["слово", "слова", "слов"]) +
       " · скопировано " + c + " " + plural(c, ["раз", "раза", "раз"]);
   }
@@ -388,10 +381,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   }
 
   function el(tag, cls, text) {
-    var e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text !== undefined) e.textContent = text;
-    return e;
+    var x = document.createElement(tag);
+    if (cls) x.className = cls;
+    if (text !== undefined) x.textContent = text;
+    return x;
   }
 
   function buildCard(it) {
@@ -403,7 +396,6 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
     var pre = el("pre", "snippet", it.text);
     card.appendChild(pre);
-
     var lines = it.text.split("\n").length;
     if (it.text.length > 260 || lines > 6) {
       var more = el("button", "more", "Показать полностью");
@@ -417,31 +409,31 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
     var meta = el("div", "meta", metaText(it));
     card.appendChild(meta);
-
     var actions = el("div", "actions");
+
     var copy = el("button", "primary copy", "Копировать");
     copy.type = "button";
     copy.addEventListener("click", function () {
       copyText(it.text).then(function (ok) {
-        if (ok) {
-          it.copies = (it.copies || 0) + 1;
-          saveLocal();
-          meta.textContent = metaText(it);
-          copy.textContent = "Скопировано";
-          copy.classList.remove("primary");
-          copy.classList.add("done");
-          toast("Текст скопирован");
-          if (cloudReady) updateCloud(it);
-          setTimeout(function () {
-            copy.textContent = "Копировать";
-            copy.classList.remove("done");
-            copy.classList.add("primary");
-          }, 1600);
-        } else {
+        if (!ok) {
           pre.classList.add("open");
           selectNode(pre);
-          toast("Не удалось скопировать сам. Текст выделен, нажмите Ctrl+C");
+          toast("Не удалось скопировать. Текст выделен, нажмите Ctrl+C");
+          return;
         }
+        it.copies = (it.copies || 0) + 1;
+        saveLocal();
+        meta.textContent = metaText(it);
+        copy.textContent = "Скопировано";
+        copy.classList.remove("primary");
+        copy.classList.add("done");
+        toast("Текст скопирован");
+        queueChange("update", it);
+        setTimeout(function () {
+          copy.textContent = "Копировать";
+          copy.classList.remove("done");
+          copy.classList.add("primary");
+        }, 1600);
       });
     });
     actions.appendChild(copy);
@@ -470,7 +462,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       saveLocal();
       render();
       toast("Текст удалён");
-      if (cloudReady) deleteCloud(it.id);
+      queueChange("delete", it);
     });
     actions.appendChild(del);
 
@@ -482,16 +474,13 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     listEl.textContent = "";
     var shown = items.filter(matches);
     shown.forEach(function (it) { listEl.appendChild(buildCard(it)); });
-
     if (!shown.length) {
-      var msg = items.length
+      listEl.appendChild(el("div", "empty", items.length
         ? "Ничего не найдено. Попробуйте другое слово."
-        : "Здесь пока пусто. Добавьте первый текст в форме выше.";
-      listEl.appendChild(el("div", "empty", msg));
+        : "Здесь пока пусто. Добавьте первый текст в форме выше."));
     }
     var n = items.length;
-    countEl.textContent = query
-      ? "Найдено " + shown.length + " из " + n
+    countEl.textContent = query ? "Найдено " + shown.length + " из " + n
       : n + " " + plural(n, ["текст", "текста", "текстов"]);
   }
 
@@ -525,159 +514,55 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     updateLiveCount();
   }
 
-  async function updateCloud(it) {
-    if (!sb || !it || !it.cloudId) return;
-    var result = await sb.from("texts").update({
-      title: it.title || "",
-      text: it.text,
-      copies: it.copies || 0,
-      updated_at: new Date().toISOString()
-    }).eq("id", it.cloudId);
-    if (result.error) {
-      setStatus("Ошибка синхронизации");
-      console.error(result.error);
+  function utf8b64(obj) {
+    var bytes = new TextEncoder().encode(JSON.stringify(obj));
+    var binary = "";
+    for (var i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
     }
+    return btoa(binary);
   }
 
-  async function insertCloud(it) {
-    if (!sb || !it) return;
-    var row = {
-      title: it.title || "",
-      text: it.text,
-      copies: it.copies || 0
-    };
-    var result = await sb.from("texts").insert(row).select("id").single();
-    if (result.error) {
-      setStatus("Ошибка синхронизации");
-      console.error(result.error);
-      return;
-    }
-    it.cloudId = result.data.id;
-    saveLocal();
+  function queueChange(op, item) {
+    pending = true;
+    setStatus("Сохранение в GitHub…");
+    var payload = op === "delete"
+      ? { op: "delete", id: item.id }
+      : { op: op, item: { id: item.id, title: item.title || "", text: item.text || "", copies: item.copies || 0 } };
+
+    var title = "[BUFFER] " + op + " " + item.id;
+    var body = "Изменение буфера текстов.\n\n<!-- BUFFER_DATA:" + utf8b64(payload) + " -->";
+    var url = "https://github.com/" + REPO + "/issues/new?title=" + encodeURIComponent(title) +
+      "&body=" + encodeURIComponent(body);
+
+    window.open(url, "_blank", "noopener");
+    toast("Открыл GitHub — нажмите «Submit new issue»");
+    setTimeout(function () {
+      pending = false;
+      loadGithub(true);
+    }, 10000);
   }
 
-  async function deleteCloud(id) {
-    if (!sb || !id) return;
-    var result = await sb.from("texts").delete().eq("id", id);
-    if (result.error) {
-      setStatus("Ошибка синхронизации");
-      console.error(result.error);
-    }
-  }
-
-  async function loadCloud() {
-    if (!sb) return false;
-    var result = await sb.from("texts").select("id,title,text,copies,created_at,updated_at").order("created_at", { ascending: false });
-    if (result.error) {
-      setStatus("Облако недоступно");
-      console.error(result.error);
-      return false;
-    }
-
-    var cloud = result.data || [];
-    if (!cloud.length) {
-      var local = loadLocal();
-      if (local && local.length) {
-        setStatus("Переносим данные в облако…");
-        for (var i = 0; i < local.length; i++) {
-          await insertCloud(local[i]);
-        }
-        items = local;
-      } else {
-        items = seed();
-        for (var j = 0; j < items.length; j++) await insertCloud(items[j]);
-      }
-    } else {
-      items = cloud.map(function (x) {
-        return {
-          id: x.id,
-          cloudId: x.id,
-          title: x.title || "",
-          text: x.text || "",
-          copies: x.copies || 0,
-          created_at: x.created_at,
-          updated_at: x.updated_at
-        };
-      });
-      saveLocal();
-    }
-
-    cloudReady = true;
-    setStatus("Синхронизировано с облаком");
-    render();
-    return true;
-  }
-
-  // Fallback synchronization over HTTPS. Some corporate networks block WebSocket.
-  var pollTimer = null;
-  var pollBusy = false;
-
-  async function pollCloud() {
-    if (!sb || pollBusy) return;
-    pollBusy = true;
+  async function loadGithub(force) {
+    if (pending && !force) return;
     try {
-      var result = await sb.from("texts")
-        .select("id,title,text,copies,created_at,updated_at")
-        .order("created_at", { ascending: false });
-
-      if (result.error) {
-        setStatus("Облако недоступно");
-        console.error(result.error);
-        return;
-      }
-
-      var cloud = result.data || [];
-      var nextItems = cloud.map(function (x) {
-        return {
-          id: x.id,
-          cloudId: x.id,
-          title: x.title || "",
-          text: x.text || "",
-          copies: x.copies || 0,
-          created_at: x.created_at,
-          updated_at: x.updated_at
-        };
-      });
-
-      items = nextItems;
+      var res = await fetch(DATA_URL + "?v=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var data = await res.json();
+      if (!Array.isArray(data)) throw new Error("Invalid data");
+      items = data;
       saveLocal();
-      setStatus("Синхронизировано с облаком");
+      githubReady = true;
+      setStatus("Синхронизировано через GitHub");
       render();
-    } finally {
-      pollBusy = false;
-    }
-  }
-
-  function startCloudPolling() {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(pollCloud, 3000);
-  }
-
-  async function initCloud() {
-    try {
-      var s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-      s.onload = async function () {
-        try {
-          sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-          await loadCloud();
-          startCloudPolling();
-        } catch (e) {
-          setStatus("Ошибка подключения к облаку");
-          console.error(e);
-        }
-      };
-      s.onerror = function () {
-        setStatus("Не удалось загрузить синхронизацию");
-      };
-      document.head.appendChild(s);
     } catch (e) {
-      setStatus("Ошибка подключения к облаку");
+      githubReady = false;
+      setStatus("GitHub недоступен");
       console.error(e);
     }
   }
 
-  form.addEventListener("submit", async function (e) {
+  form.addEventListener("submit", function (e) {
     e.preventDefault();
     var text = bodyEl.value.replace(/\s+$/, "");
     var title = titleEl.value.trim();
@@ -688,23 +573,23 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     }
 
     if (editingId) {
-      var old = items.filter(function (x) { return x.id === editingId; })[0];
-      items = items.map(function (x) {
-        if (x.id !== editingId) return x;
-        return Object.assign({}, x, { title: title, text: text, copies: x.copies || 0 });
-      });
-      toast("Изменения сохранены");
+      var it = items.filter(function (x) { return x.id === editingId; })[0];
+      if (!it) return;
+      it.title = title;
+      it.text = text;
       saveLocal();
-      if (cloudReady && old) await updateCloud(items.filter(function (x) { return x.id === editingId; })[0]);
+      render();
+      toast("Изменения сохранены локально");
+      queueChange("update", it);
     } else {
       var newItem = { id: uid(), title: title, text: text, copies: 0 };
       items.unshift(newItem);
       saveLocal();
-      toast("Текст сохранён");
-      if (cloudReady) await insertCloud(newItem);
+      render();
+      toast("Текст добавлен");
+      queueChange("add", newItem);
     }
     stopEdit();
-    render();
   });
 
   cancelEl.addEventListener("click", stopEdit);
@@ -725,9 +610,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   else { items = []; }
   updateLiveCount();
   render();
-  initCloud();
+  loadGithub(false);
+  setInterval(function () { loadGithub(false); }, 5000);
 })();
-</script>>
+</script>
 
 </body>
 </html>
