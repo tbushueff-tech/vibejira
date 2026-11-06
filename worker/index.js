@@ -496,6 +496,55 @@ export default {
       }
     }
 
+    if (url.pathname === "/auth/password" && request.method === "POST") {
+      try {
+        if (origin !== ALLOWED_ORIGIN) {
+          return json({ ok: false, error: "Недопустимый источник запроса" }, 403, origin);
+        }
+        const session = await verifySession(request, env);
+        if (!session || !env.USER_STORE) {
+          return json({ ok: false, error: "Unauthorized" }, 401, origin);
+        }
+
+        const data = await request.json();
+        const currentPassword = String(data.currentPassword || "");
+        const newPassword = String(data.newPassword || "");
+        const cryptoBundle = data && data.crypto;
+
+        if (newPassword.length < 6 || newPassword.length > 128) {
+          return json({ ok: false, error: "Новый пароль должен быть от 6 до 128 символов" }, 400, origin);
+        }
+        if (!cryptoBundle || cryptoBundle.v !== 1 ||
+            typeof cryptoBundle.salt !== "string" ||
+            typeof cryptoBundle.iv !== "string" ||
+            typeof cryptoBundle.wrappedKey !== "string") {
+          return json({ ok: false, error: "Некорректные параметры шифрования" }, 400, origin);
+        }
+
+        const userKey = "user:" + String(session.username).toLowerCase();
+        const raw = await env.USER_STORE.get(userKey);
+        if (!raw) return json({ ok: false, error: "Пользователь не найден" }, 404, origin);
+
+        const record = JSON.parse(raw);
+        const currentHash = await hashPassword(currentPassword, record.salt);
+        if (currentHash !== record.hash) {
+          return json({ ok: false, error: "Неверный текущий пароль" }, 401, origin);
+        }
+
+        const salt = randomSalt();
+        const hash = await hashPassword(newPassword, salt);
+        record.salt = salt;
+        record.hash = hash;
+        record.crypto = cryptoBundle;
+        await env.USER_STORE.put(userKey, JSON.stringify(record));
+
+        return json({ ok: true }, 200, origin);
+      } catch (e) {
+        console.error("Password change failed:", e);
+        return json({ ok: false, error: "Не удалось сменить пароль" }, 500, origin);
+      }
+    }
+
     if (url.pathname === "/auth/crypto" && request.method === "POST") {
       try {
         if (origin !== ALLOWED_ORIGIN) {
