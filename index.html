@@ -1080,6 +1080,13 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   });
 
   items = [];
+  // Не оставляем старый plaintext-буфер в localStorage.
+  try {
+    var legacyRaw = localStorage.getItem(KEY);
+    if (legacyRaw && legacyRaw.trim().charAt(0) === "[") {
+      localStorage.removeItem(KEY);
+    }
+  } catch (e) {}
   updateLiveCount();
 
   (async function () {
