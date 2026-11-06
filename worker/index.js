@@ -89,11 +89,28 @@ async function writeFile(items, sha, message, env) {
   }
 }
 
-function bufferPrefix(username) {
-  return "buffer:" + username.toLowerCase() + ":";
+function bufferKey(username) {
+  return "buffer:" + username.toLowerCase();
 }
 
-async function getEncryptedUserBuffer(env, username) {
+function bufferPrefix(username) {
+  return bufferKey(username) + ":";
+}
+
+function validateEncryptedPayload(payload) {
+  if (!payload || payload.v !== 2 || !Array.isArray(payload.items)) {
+    throw new Error("Encrypted buffer required");
+  }
+  for (const item of payload.items) {
+    if (!item || item.v !== 2 || typeof item.id !== "string" ||
+        typeof item.expiresAt !== "number" ||
+        typeof item.iv !== "string" || typeof item.ciphertext !== "string") {
+      throw new Error("Invalid encrypted buffer item");
+    }
+  }
+}
+
+async function getLegacyPerItemBuffer(env, username) {
   const prefix = bufferPrefix(username);
   let cursor;
   const encryptedItems = [];
@@ -118,41 +135,56 @@ async function getEncryptedUserBuffer(env, username) {
   return { v: 2, items: encryptedItems };
 }
 
-async function saveEncryptedUserBuffer(env, username, payload) {
-  const prefix = bufferPrefix(username);
-  const incoming = payload.items;
-  const incomingIds = new Set();
-  let cursor;
-  const existingNames = [];
+async function getEncryptedUserBuffer(env, username) {
+  const key = bufferKey(username);
+  const raw = await env.USER_STORE.get(key, { cacheTtl: 30 });
 
-  do {
-    const page = await env.USER_STORE.list({ prefix, cursor });
-    for (const key of page.keys) existingNames.push(key.name);
-    cursor = page.list_complete ? undefined : page.cursor;
-  } while (cursor);
-
-  for (const item of incoming) {
-    if (!item || item.v !== 2 || typeof item.id !== "string" ||
-        typeof item.expiresAt !== "number" ||
-        typeof item.iv !== "string" || typeof item.ciphertext !== "string") {
-      throw new Error("Invalid encrypted buffer item");
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.v === 2 && Array.isArray(parsed.items)) {
+        return parsed;
+      }
+      // Legacy plaintext array. Frontend will immediately migrate it.
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      console.error("Invalid buffer:", key, e);
     }
-    incomingIds.add(item.id);
-    const expiresAtSeconds = Math.floor(item.expiresAt / 1000);
-    const minExpiration = Math.floor(Date.now() / 1000) + 60;
-    await env.USER_STORE.put(
-      prefix + item.id,
-      JSON.stringify(item),
-      { expiration: Math.max(expiresAtSeconds, minExpiration) }
-    );
   }
 
-  for (const name of existingNames) {
-    const id = name.slice(prefix.length);
-    if (!incomingIds.has(id)) await env.USER_STORE.delete(name);
+  // One-time migration from the previous per-item encrypted layout.
+  const legacy = await getLegacyPerItemBuffer(env, username);
+  if (legacy.items.length) {
+    const maxExpiresAt = Math.max(...legacy.items.map(item => item.expiresAt || 0));
+    await env.USER_STORE.put(key, JSON.stringify(legacy), {
+      expiration: Math.max(
+        Math.floor(maxExpiresAt / 1000),
+        Math.floor(Date.now() / 1000) + 60
+      )
+    });
+    return legacy;
   }
 
-  await env.USER_STORE.delete("buffer:" + username.toLowerCase());
+  return { v: 2, items: [] };
+}
+
+async function saveEncryptedUserBuffer(env, username, payload) {
+  validateEncryptedPayload(payload);
+  const key = bufferKey(username);
+
+  if (payload.items.length === 0) {
+    await env.USER_STORE.delete(key);
+    return;
+  }
+
+  const maxExpiresAt = Math.max(...payload.items.map(item => item.expiresAt));
+  const expiration = Math.max(
+    Math.floor(maxExpiresAt / 1000),
+    Math.floor(Date.now() / 1000) + 60
+  );
+
+  // One encrypted document per user: one read / one write, no list() on normal use.
+  await env.USER_STORE.put(key, JSON.stringify(payload), { expiration });
 }
 
 function normalizeBuffer(items, now) {
@@ -350,14 +382,8 @@ function checkKey(request, env) {
 }
 
 export default {
-  async scheduled(controller, env) {
-    try {
-      const result = await cleanupExpiredBuffers(env);
-      console.log("Auto-clean:", controller.cron, result);
-    } catch (e) {
-      console.error("Auto-clean failed:", e);
-      throw e;
-    }
+  async scheduled() {
+    // No KV scan is needed anymore. Buffer keys expire automatically in KV.
   },
 
   async fetch(request, env) {
@@ -534,27 +560,15 @@ export default {
 
       if (request.method === "GET") {
         const encrypted = await getEncryptedUserBuffer(env, username);
-        if (encrypted.items.length > 0) {
-          return json(encrypted, 200, origin);
-        }
-
-        const legacyRaw = await env.USER_STORE.get("buffer:" + username.toLowerCase());
-        if (legacyRaw) {
-          try {
-            const legacyItems = JSON.parse(legacyRaw);
-            if (Array.isArray(legacyItems)) return json(legacyItems, 200, origin);
-          } catch (e) {
-            console.error("Invalid legacy buffer:", e);
-          }
-        }
-
-        return json({ v: 2, items: [] }, 200, origin);
+        return json(encrypted, 200, origin);
       }
 
       if (request.method === "POST") {
         const data = await request.json();
-        if (!data || data.v !== 2 || !Array.isArray(data.items)) {
-          return json({ ok: false, error: "Encrypted buffer required" }, 400, origin);
+        try {
+          validateEncryptedPayload(data);
+        } catch (e) {
+          return json({ ok: false, error: String(e.message || e) }, 400, origin);
         }
         await saveEncryptedUserBuffer(env, username, data);
         return json({ ok: true }, 200, origin);
