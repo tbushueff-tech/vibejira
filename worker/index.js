@@ -417,6 +417,9 @@ export default {
 
     if (url.pathname === "/auth/crypto" && request.method === "POST") {
       try {
+        if (origin !== ALLOWED_ORIGIN) {
+          return json({ ok: false, error: "Недопустимый источник запроса" }, 403, origin);
+        }
         const session = await verifySession(request, env);
         if (!session || !env.USER_STORE) {
           return json({ ok: false, error: "Unauthorized" }, 401, origin);
