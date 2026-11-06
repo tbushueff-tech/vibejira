@@ -828,6 +828,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
   async function apiFetch(route, options) {
     options = options || {};
+    // Authentication is done with the Bearer token. Cross-origin cookies are
+    // unnecessary and would require a different CORS policy on HostiMan.
+    // Explicitly disable cookie credentials for both API providers.
+    options = Object.assign({}, options, { credentials: "omit" });
     var method = (options.method || "GET").toUpperCase();
     var provider = await selectApi(false);
     var fetchOptions = Object.assign({ cache: "no-store" }, options);
@@ -2013,7 +2017,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
     var res = await apiFetch("/", {
       method: "POST",
-      credentials: "include",
+      credentials: "omit",
       headers: authHeaders({
         "Content-Type": "application/json",
         "X-Buffer-Key": BUFFER_KEY
@@ -2065,7 +2069,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     if (!force && lastCloudSaveAt && Date.now() - lastCloudSaveAt < 15000) return;
     try {
       var res = await apiFetch("/", {
-        credentials: "include",
+        credentials: "omit",
         headers: authHeaders({ "X-Buffer-Key": BUFFER_KEY }),
         cache: "no-store"
       });
