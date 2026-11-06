@@ -347,16 +347,21 @@ export default {
 
         const salt = randomSalt();
         const hash = await hashPassword(password, salt);
+        const cryptoBundle = data.crypto && typeof data.crypto === "object"
+          ? data.crypto
+          : null;
+
         await env.USER_STORE.put(userKey, JSON.stringify({
           username,
           salt,
           hash,
+          crypto: cryptoBundle,
           createdAt: Date.now()
         }));
 
         const token = await createSession(username, env);
         return json(
-          { ok: true, username, token },
+          { ok: true, username, token, crypto: cryptoBundle },
           201,
           origin
         );
@@ -380,12 +385,14 @@ export default {
         }
 
         let valid = false;
+        let cryptoBundle = null;
         if (env.USER_STORE) {
           const recordRaw = await env.USER_STORE.get("user:" + username.toLowerCase());
           if (recordRaw) {
             const record = JSON.parse(recordRaw);
             const hash = await hashPassword(password, record.salt);
             valid = hash === record.hash;
+            cryptoBundle = record.crypto || null;
           }
         }
 
@@ -399,12 +406,43 @@ export default {
 
         const token = await createSession(username, env);
         return json(
-          { ok: true, username, token },
+          { ok: true, username, token, crypto: cryptoBundle },
           200,
           origin
         );
       } catch (e) {
         return json({ ok: false, error: "Некорректный запрос" }, 400, origin);
+      }
+    }
+
+    if (url.pathname === "/auth/crypto" && request.method === "POST") {
+      try {
+        const session = await verifySession(request, env);
+        if (!session || !env.USER_STORE) {
+          return json({ ok: false, error: "Unauthorized" }, 401, origin);
+        }
+
+        const data = await request.json();
+        const cryptoBundle = data && data.crypto;
+        if (!cryptoBundle || cryptoBundle.v !== 1 ||
+            typeof cryptoBundle.salt !== "string" ||
+            typeof cryptoBundle.iv !== "string" ||
+            typeof cryptoBundle.wrappedKey !== "string") {
+          return json({ ok: false, error: "Некорректные параметры шифрования" }, 400, origin);
+        }
+
+        const userKey = "user:" + String(session.username).toLowerCase();
+        const raw = await env.USER_STORE.get(userKey);
+        if (!raw) return json({ ok: false, error: "Пользователь не найден" }, 404, origin);
+
+        const record = JSON.parse(raw);
+        record.crypto = cryptoBundle;
+        await env.USER_STORE.put(userKey, JSON.stringify(record));
+
+        return json({ ok: true, crypto: cryptoBundle }, 200, origin);
+      } catch (e) {
+        console.error("Crypto setup failed:", e);
+        return json({ ok: false, error: "Не удалось сохранить настройки шифрования" }, 500, origin);
       }
     }
 
