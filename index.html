@@ -367,6 +367,9 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   var authUserEl = $("auth-user");
   var logoutButton = $("logout");
   var authToken = localStorage.getItem("buffer_auth_token") || "";
+  var encryptionKey = null;
+  var cryptoBundle = null;
+  var CRYPTO_KDF_ITERATIONS = 600000;
 
   function authHeaders(extra) {
     var h = extra || {};
@@ -402,11 +405,159 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     return await res.json();
   }
 
-  async function register(username, password) {
+  function bytesToB64(bytes) {
+    var binary = "";
+    for (var i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
+  }
+
+  function b64ToBytes(value) {
+    var binary = atob(value);
+    return Uint8Array.from(binary, function (c) { return c.charCodeAt(0); });
+  }
+
+  async function deriveWrappingKey(password, salt, iterations) {
+    var base = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveKey"]
+    );
+    return crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: iterations,
+        hash: "SHA-256"
+      },
+      base,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  async function createCryptoBundle(password) {
+    var masterKey = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    var rawMaster = new Uint8Array(await crypto.subtle.exportKey("raw", masterKey));
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var wrappingKey = await deriveWrappingKey(password, salt, CRYPTO_KDF_ITERATIONS);
+    var wrapped = new Uint8Array(await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv },
+      wrappingKey,
+      rawMaster
+    ));
+
+    return {
+      v: 1,
+      alg: "AES-256-GCM",
+      kdf: "PBKDF2-SHA-256",
+      iterations: CRYPTO_KDF_ITERATIONS,
+      salt: bytesToB64(salt),
+      iv: bytesToB64(iv),
+      wrappedKey: bytesToB64(wrapped),
+      key: masterKey
+    };
+  }
+
+  async function unlockCryptoBundle(bundle, password) {
+    if (!bundle || bundle.v !== 1) throw new Error("Настройки шифрования отсутствуют");
+    var salt = b64ToBytes(bundle.salt);
+    var iv = b64ToBytes(bundle.iv);
+    var wrapped = b64ToBytes(bundle.wrappedKey);
+    var wrappingKey = await deriveWrappingKey(
+      password,
+      salt,
+      Number(bundle.iterations) || CRYPTO_KDF_ITERATIONS
+    );
+    var rawMaster = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv },
+      wrappingKey,
+      wrapped
+    );
+    return crypto.subtle.importKey(
+      "raw",
+      rawMaster,
+      { name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  async function saveCryptoBundle(bundle) {
+    var res = await fetch(AUTH_URL + "/auth/crypto", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "text/plain;charset=UTF-8" }),
+      body: JSON.stringify({ crypto: {
+        v: bundle.v,
+        alg: bundle.alg,
+        kdf: bundle.kdf,
+        iterations: bundle.iterations,
+        salt: bundle.salt,
+        iv: bundle.iv,
+        wrappedKey: bundle.wrappedKey
+      }})
+    });
+    var data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error(data.error || "Не удалось сохранить настройки шифрования");
+    cryptoBundle = data.crypto || bundle;
+  }
+
+  async function encryptItems(itemsToEncrypt) {
+    if (!encryptionKey) throw new Error("Буфер ещё не разблокирован");
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var plaintext = new TextEncoder().encode(JSON.stringify(itemsToEncrypt));
+    var ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv },
+      encryptionKey,
+      plaintext
+    ));
+    return {
+      v: 1,
+      alg: "AES-256-GCM",
+      iv: bytesToB64(iv),
+      ciphertext: bytesToB64(ciphertext)
+    };
+  }
+
+  async function decryptItems(envelope) {
+    if (!encryptionKey) throw new Error("Буфер ещё не разблокирован");
+    if (!envelope || envelope.v !== 1 || !envelope.iv || !envelope.ciphertext) {
+      throw new Error("Неверный формат зашифрованного буфера");
+    }
+    var plaintext = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: b64ToBytes(envelope.iv) },
+      encryptionKey,
+      b64ToBytes(envelope.ciphertext)
+    );
+    var decoded = JSON.parse(new TextDecoder().decode(plaintext));
+    if (!Array.isArray(decoded)) throw new Error("Зашифрованный буфер повреждён");
+    return decoded;
+  }
+
+  async function register(username, password, bundle) {
+    var cryptoPayload = {
+      v: bundle.v,
+      alg: bundle.alg,
+      kdf: bundle.kdf,
+      iterations: bundle.iterations,
+      salt: bundle.salt,
+      iv: bundle.iv,
+      wrappedKey: bundle.wrappedKey
+    };
     var res = await fetch(AUTH_URL + "/auth/register", {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
-      body: JSON.stringify({ username: username, password: password })
+      body: JSON.stringify({ username: username, password: password, crypto: cryptoPayload })
     });
     var data = {};
     try { data = await res.json(); } catch (e) {}
@@ -427,6 +578,21 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     if (!res.ok) throw new Error(data.error || "Неверный логин или пароль");
     authToken = data.token || "";
     if (authToken) localStorage.setItem("buffer_auth_token", authToken);
+
+    if (data.crypto) {
+      try {
+        encryptionKey = await unlockCryptoBundle(data.crypto, password);
+        cryptoBundle = data.crypto;
+      } catch (e) {
+        throw new Error("Не удалось расшифровать буфер. Проверьте пароль.");
+      }
+    } else {
+      var created = await createCryptoBundle(password);
+      encryptionKey = created.key;
+      cryptoBundle = created;
+      await saveCryptoBundle(created);
+    }
+
     return data;
   }
 
@@ -438,7 +604,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       });
     } catch (e) {}
     authToken = "";
+    encryptionKey = null;
+    cryptoBundle = null;
+    items = [];
     localStorage.removeItem("buffer_auth_token");
+    localStorage.removeItem(KEY);
     showLogin();
   }
 
@@ -460,9 +630,15 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     loginButton.disabled = true;
     loginButton.textContent = registerMode ? "Регистрация…" : "Вход…";
     try {
-      var data = registerMode
-        ? await register(username, password)
-        : await login(username, password);
+      var data;
+      if (registerMode) {
+        var newCrypto = await createCryptoBundle(password);
+        encryptionKey = newCrypto.key;
+        cryptoBundle = newCrypto;
+        data = await register(username, password, newCrypto);
+      } else {
+        data = await login(username, password);
+      }
       showApp(data.username);
       updateLiveCount();
       render();
@@ -502,16 +678,30 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   }
   function words(t) { var s = t.trim(); return s ? s.split(/\s+/).length : 0; }
 
-  function loadLocal() {
+  async function loadLocal() {
     try {
       var raw = localStorage.getItem(KEY);
       if (raw === null) return null;
-      var a = JSON.parse(raw);
-      return Array.isArray(a) ? a : null;
-    } catch (e) { return null; }
+      var envelope = JSON.parse(raw);
+      if (envelope && envelope.v === 1 && envelope.ciphertext) {
+        return await decryptItems(envelope);
+      }
+      // Старый незашифрованный локальный буфер больше не используем.
+      localStorage.removeItem(KEY);
+      return null;
+    } catch (e) {
+      console.error("Local encrypted buffer error:", e);
+      return null;
+    }
   }
-  function saveLocal() {
-    try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {}
+
+  async function saveLocal() {
+    try {
+      var envelope = await encryptItems(items);
+      localStorage.setItem(KEY, JSON.stringify(envelope));
+    } catch (e) {
+      console.error("Local encrypted save error:", e);
+    }
   }
 
   function purgeExpired(localOnly) {
@@ -769,6 +959,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     if (!WORKER_URL || WORKER_URL.indexOf("REPLACE_WITH_YOUR_WORKER") !== -1) {
       throw new Error("Адрес Cloudflare Worker ещё не указан");
     }
+    var envelope = await encryptItems(items);
 
     var res = await fetch(WORKER_URL, {
       method: "POST",
@@ -777,7 +968,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
         "Content-Type": "application/json",
         "X-Buffer-Key": BUFFER_KEY
       }),
-      body: JSON.stringify(items)
+      body: JSON.stringify(envelope)
     });
 
     if (!res.ok) {
@@ -818,14 +1009,23 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       });
       if (!res.ok) throw new Error("Worker HTTP " + res.status);
       var data = await res.json();
-      if (!Array.isArray(data)) throw new Error("Invalid data");
-      items = data;
+      if (Array.isArray(data)) {
+        // Одноразовая миграция старого открытого буфера:
+        // получаем его, сразу шифруем на клиенте и перезаписываем ciphertext.
+        items = data;
+        await saveGithub();
+        await saveLocal();
+      } else {
+        items = await decryptItems(data);
+        await saveLocal();
+      }
+
       var expiryChanged = ensureExpiry(items);
       var expiredRemoved = purgeExpired(true);
       if (expiryChanged || expiredRemoved) {
         await saveGithub();
+        await saveLocal();
       }
-      saveLocal();
       githubReady = true;
       setStatus("Синхронизировано через GitHub");
       render();
@@ -879,18 +1079,21 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     render();
   });
 
-  var stored = loadLocal();
-  if (stored !== null) { items = stored; }
-  else { items = []; }
+  items = [];
   updateLiveCount();
 
   (async function () {
     try {
       var auth = await checkAuth();
       if (auth && auth.authenticated) {
-        showApp(auth.username);
-        render();
-        await loadGithub(true);
+        // Сессия сохранена, но ключ шифрования намеренно не хранится
+        // в localStorage. Пользователь должен снова ввести пароль,
+        // чтобы разблокировать буфер.
+        showLogin();
+        authDescription.textContent = "Сессия активна. Введите пароль, чтобы разблокировать зашифрованный буфер.";
+        loginUserEl.value = auth.username || "";
+        loginError.textContent = "";
+        loginPasswordEl.focus();
       } else {
         showLogin();
       }
