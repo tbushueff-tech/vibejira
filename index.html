@@ -117,6 +117,60 @@ header {
   box-shadow: 0 1px 4px rgba(9,30,66,.18);
 }
 .brand { min-width: 0; display: flex; align-items: center; gap: 10px; flex: none; }
+/* Glossy header lockup: original blue mark + high-contrast white lettering. */
+header .header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  white-space: nowrap;
+  user-select: none;
+}
+header .header-brand-mark {
+  display: block;
+  position: relative;
+  width: 52px;
+  height: 42px;
+  flex: 0 0 52px;
+  overflow: hidden;
+}
+header .header-brand-mark img {
+  position: absolute;
+  display: block;
+  width: 172px;
+  max-width: none;
+  height: auto;
+  left: -19px;
+  top: -9px;
+  filter: drop-shadow(0 0 0.7px rgba(255,255,255,.95))
+          drop-shadow(0 0 2px rgba(255,255,255,.56))
+          drop-shadow(0 2px 3px rgba(0,21,68,.24));
+}
+header .header-brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1;
+}
+header .header-brand-name {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: .98;
+  font-weight: 750;
+  letter-spacing: -.035em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,21,68,.22);
+}
+header .header-brand-by {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: .005em;
+  color: #dcecff;
+  text-shadow: 0 1px 2px rgba(0,21,68,.2);
+}
+
 .brand-text { min-width: 0; }
 h1 {
   font-family: var(--font-display);
@@ -511,7 +565,13 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 <div class="wrap app-hidden" id="app">
   <header>
     <div class="brand">
-      <div class="brand-logo"><img class="helper-logo" src="./assets/helper-logo-v2.png" alt="Helper by bushueff"></div>
+      <div class="header-brand" aria-label="Helper by bushueff">
+        <span class="header-brand-mark" aria-hidden="true"><img src="./assets/helper-logo-v2.png" alt=""></span>
+        <span class="header-brand-text">
+          <span class="header-brand-name">Helper</span>
+          <span class="header-brand-by">by bushueff</span>
+        </span>
+      </div>
     </div>
     <nav class="nav-left" aria-label="Основная навигация">
       <button type="button" class="nav-button active">Clipboard</button>
