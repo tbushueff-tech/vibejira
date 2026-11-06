@@ -445,66 +445,78 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     return Uint8Array.from(binary, function (c) { return c.charCodeAt(0); });
   }
 
-  async function deriveSessionKey(token) {
-    var digest = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(token)
-    );
-    return crypto.subtle.importKey(
-      "raw",
-      digest,
-      { name: "AES-GCM" },
-      false,
-      ["encrypt", "decrypt"]
-    );
+  var SESSION_KEY_DB = "vibejira_session";
+  var SESSION_KEY_STORE = "keys";
+  var SESSION_KEY_ID = "encryption";
+
+  function openSessionKeyDb() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) {
+        reject(new Error("IndexedDB unavailable"));
+        return;
+      }
+      var req = indexedDB.open(SESSION_KEY_DB, 1);
+      req.onupgradeneeded = function () {
+        if (!req.result.objectStoreNames.contains(SESSION_KEY_STORE)) {
+          req.result.createObjectStore(SESSION_KEY_STORE);
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error("IndexedDB error")); };
+    });
   }
 
   async function saveSessionEncryptionKey() {
-    if (!authToken || !encryptionKey) return;
+    if (!encryptionKey) return false;
     try {
-      var raw = new Uint8Array(await crypto.subtle.exportKey("raw", encryptionKey));
-      var iv = crypto.getRandomValues(new Uint8Array(12));
-      var key = await deriveSessionKey(authToken);
-      var encrypted = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: iv },
-        key,
-        raw
-      );
-      localStorage.setItem("buffer_session_key", JSON.stringify({
-        v: 1,
-        iv: bytesToB64(iv),
-        ciphertext: bytesToB64(new Uint8Array(encrypted))
-      }));
+      var db = await openSessionKeyDb();
+      await new Promise(function (resolve, reject) {
+        var tx = db.transaction(SESSION_KEY_STORE, "readwrite");
+        tx.objectStore(SESSION_KEY_STORE).put(encryptionKey, SESSION_KEY_ID);
+        tx.oncomplete = resolve;
+        tx.onerror = function () { reject(tx.error || new Error("IndexedDB write error")); };
+      });
+      db.close();
+      return true;
     } catch (e) {
       console.error("Session key save error:", e);
+      return false;
     }
   }
 
   async function restoreSessionEncryptionKey() {
-    if (!authToken) return false;
     try {
-      var rawEnvelope = localStorage.getItem("buffer_session_key");
-      if (!rawEnvelope) return false;
-      var envelope = JSON.parse(rawEnvelope);
-      if (!envelope || envelope.v !== 1) return false;
-      var key = await deriveSessionKey(authToken);
-      var raw = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: b64ToBytes(envelope.iv) },
-        key,
-        b64ToBytes(envelope.ciphertext)
-      );
-      encryptionKey = await crypto.subtle.importKey(
-        "raw",
-        raw,
-        { name: "AES-GCM" },
-        false,
-        ["encrypt", "decrypt"]
-      );
+      var db = await openSessionKeyDb();
+      var key = await new Promise(function (resolve, reject) {
+        var tx = db.transaction(SESSION_KEY_STORE, "readonly");
+        var req = tx.objectStore(SESSION_KEY_STORE).get(SESSION_KEY_ID);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error || new Error("IndexedDB read error")); };
+      });
+      db.close();
+      if (!key) return false;
+      encryptionKey = key;
       return true;
     } catch (e) {
-      localStorage.removeItem("buffer_session_key");
+      console.error("Session key restore error:", e);
       return false;
     }
+  }
+
+  async function clearSessionEncryptionKey() {
+    try {
+      var db = await openSessionKeyDb();
+      await new Promise(function (resolve, reject) {
+        var tx = db.transaction(SESSION_KEY_STORE, "readwrite");
+        tx.objectStore(SESSION_KEY_STORE).delete(SESSION_KEY_ID);
+        tx.oncomplete = resolve;
+        tx.onerror = function () { reject(tx.error || new Error("IndexedDB delete error")); };
+      });
+      db.close();
+    } catch (e) {
+      console.error("Session key delete error:", e);
+    }
+    try { localStorage.removeItem("buffer_session_key"); } catch (e) {}
   }
 
   async function deriveWrappingKey(password, salt, iterations) {
@@ -722,7 +734,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     cryptoBundle = null;
     items = [];
     localStorage.removeItem("buffer_auth_token");
-    localStorage.removeItem("buffer_session_key");
+    await clearSessionEncryptionKey();
     localStorage.removeItem(KEY);
     showLogin();
   }
