@@ -135,6 +135,11 @@ async function getLegacyPerItemBuffer(env, username) {
   return { v: 2, items: encryptedItems };
 }
 
+function legacyMigrationMarkerKey(username) {
+  // Permanent marker: when the main buffer expires, do not rescan old keys.
+  return "legacy-migration:v2:" + username.toLowerCase();
+}
+
 async function getEncryptedUserBuffer(env, username) {
   const key = bufferKey(username);
   const raw = await env.USER_STORE.get(key, { cacheTtl: 30 });
@@ -152,9 +157,17 @@ async function getEncryptedUserBuffer(env, username) {
     }
   }
 
-  // One-time migration from the previous per-item encrypted layout.
+  // The legacy per-item scan must happen at most once per user, not on
+  // every GET to an empty buffer (which happens every polling interval).
+  const marker = legacyMigrationMarkerKey(username);
+  if (await env.USER_STORE.get(marker)) {
+    return { v: 2, items: [] };
+  }
+
   const legacy = await getLegacyPerItemBuffer(env, username);
   if (legacy.items.length) {
+    // Save the migrated data before setting the marker. On a failed write,
+    // a later request can safely retry migration rather than lose records.
     const maxExpiresAt = Math.max(...legacy.items.map(item => item.expiresAt || 0));
     await env.USER_STORE.put(key, JSON.stringify(legacy), {
       expiration: Math.max(
@@ -162,10 +175,11 @@ async function getEncryptedUserBuffer(env, username) {
         Math.floor(Date.now() / 1000) + 60
       )
     });
-    return legacy;
   }
+  // KV markers have no expiration; unlike buffers, they are not deleted by TTL.
+  await env.USER_STORE.put(marker, "1");
 
-  return { v: 2, items: [] };
+  return legacy;
 }
 
 async function saveEncryptedUserBuffer(env, username, payload) {
@@ -439,6 +453,8 @@ export default {
           crypto: cryptoBundle,
           createdAt: Date.now()
         }));
+        // New accounts cannot have legacy per-item records. Skip scans entirely.
+        await env.USER_STORE.put(legacyMigrationMarkerKey(username), "1");
 
         const token = await createSession(username, env);
         return json(
