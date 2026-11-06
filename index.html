@@ -353,6 +353,19 @@ button.primary:hover { filter: brightness(1.08); background: var(--accent); }
 button.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 0 10px; }
 button.ghost:hover { color: var(--fg); background: var(--surface-2); border-color: transparent; }
 button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); background: transparent; }
+button.google-ai-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  background: var(--surface);
+}
+button.google-ai-action:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+button.google-ai-action[hidden] { display: none; }
+.google-ai-symbol { display: inline-block; color: #4285f4; font-size: 17px; line-height: 1; }
+
 
 #login-screen {
   position: fixed;
@@ -713,6 +726,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     <div class="row">
       <button type="submit" class="primary" id="save">Сохранить</button>
       <button type="button" id="cancel" hidden>Отменить</button>
+      <button type="button" class="google-ai-action" id="composer-google-ai" hidden title="Текст будет отправлен в Google AI Mode"><span class="google-ai-symbol" aria-hidden="true">✦</span> В Google AI</button>
       <span class="hint" id="live-count">0 симв.</span>
     </div>
   </form>
@@ -1764,6 +1778,46 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     } catch (e) {}
   }
 
+  function isLikelyCode(value) {
+    if (typeof value !== "string") return false;
+    var s = value.trim();
+    if (s.length < 12) return false;
+    if (/^```[a-z0-9_+-]*\s*\n[\s\S]+\n```/i.test(s)) return true;
+    if (/^\s*(?:<\?php|<!doctype html>|<html\b|<script\b|<\?xml)/i.test(s)) return true;
+    if (/^\s*(?:\{|\[)[\s\S]*[}\]]\s*$/.test(s)) {
+      try { var parsed = JSON.parse(s); if (parsed && typeof parsed === "object") return true; } catch (e) {}
+    }
+    var clues = 0;
+    if (/(?:^|\n)\s*(?:import\s+|from\s+\S+\s+import\s+|export\s+|#include\s*[<"]|using\s+\S+|package\s+\w+)/m.test(s)) clues += 2;
+    if (/\b(?:const|let|var|function|class|interface|enum|public|private|async|await|def|return|console\.log|print|SELECT|INSERT\s+INTO|UPDATE\s+\w+\s+SET|CREATE\s+TABLE)\b/i.test(s)) clues += 1;
+    if (/(?:=>|\bif\s*\(|\bfor\s*\(|\bwhile\s*\(|\btry\s*\{|\bexcept\s+\w+\s*:|\bWHERE\b)/i.test(s)) clues += 1;
+    if (/[{};]\s*(?:\n|$)|\w+\s*\([^)]*\)\s*[{:]|^\s{2,}\S/m.test(s)) clues += 1;
+    if (/(?:^|\n)\s*(?:\/\/|#\s*\w|\/\*|--\s)/m.test(s)) clues += 1;
+    return clues >= 2;
+  }
+
+  async function sendToGoogleAi(value) {
+    if (!value || !value.trim()) return;
+    var selected = value.trim();
+    // Sending via a search URL discloses the content to Google and adds it
+    // to URL/browser history. Ask before forwarding obvious credentials.
+    if (/(?:api[_-]?key|access[_-]?token|authorization|password|secret)\s*[:=]\s*["']?\S+/i.test(selected)) {
+      if (!window.confirm("В тексте могут быть пароли или токены. Google получит отправленный текст. Всё равно продолжить?")) return;
+    }
+    var link = "https://www.google.com/search?udm=50&q=" + encodeURIComponent(selected);
+    if (link.length <= 1800) {
+      window.open(link, "_blank", "noopener,noreferrer");
+      return;
+    }
+    // Large snippets cannot reliably be passed through an address bar. A
+    // different-origin page cannot be populated directly by Helper scripts.
+    var newTab = window.open("https://www.google.com/ai", "_blank", "noopener,noreferrer");
+    var copied = await copyText(selected);
+    if (copied) toast("Код скопирован. Вставьте его в Google AI (Ctrl+V).");
+    else toast("Google AI открыт. Скопируйте код вручную из Helper.");
+    if (!newTab) toast("Разрешите всплывающие окна и откройте google.com/ai");
+  }
+
   function formatExpiry(seconds) {
     var left = Math.max(0, Math.ceil(seconds));
     if (left >= 24 * 60 * 60) {
@@ -1916,6 +1970,14 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     });
     actions.appendChild(copy);
 
+    if (isLikelyCode(it.text)) {
+      var googleAi = el("button", "google-ai-action", "✦ В Google AI");
+      googleAi.type = "button";
+      googleAi.title = "Открыть код в Google AI Mode";
+      googleAi.addEventListener("click", function () { sendToGoogleAi(it.text); });
+      actions.appendChild(googleAi);
+    }
+
     var edit = el("button", "ghost", "Изменить");
     edit.type = "button";
     edit.addEventListener("click", function () { startEdit(it.id); });
@@ -1968,6 +2030,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   function updateLiveCount() {
     var t = bodyEl.value;
     liveCount.textContent = t.length + " симв. · " + words(t) + " " + plural(words(t), ["слово", "слова", "слов"]);
+    $("composer-google-ai").hidden = !isLikelyCode(t);
   }
 
   function startEdit(id) {
@@ -2145,6 +2208,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
   cancelEl.addEventListener("click", stopEdit);
   bodyEl.addEventListener("input", updateLiveCount);
+  $("composer-google-ai").addEventListener("click", function () { sendToGoogleAi(bodyEl.value); });
   bodyEl.addEventListener("keydown", function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
