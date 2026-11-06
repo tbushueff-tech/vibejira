@@ -840,19 +840,28 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
       return await fetch(apiUrl(provider, route), fetchOptions);
     } catch (e) {
       // No blind POST retry: the first server may have accepted the write
-      // before the connection broke. Next interaction will pick a healthy API.
+      // before the connection broke. A safe GET probe can still select the
+      // other provider for the user's next explicit action.
       activeApi = null;
       lastApiProbeAt = 0;
-      if (method !== "GET") {
-        throw new Error("Соединение прервалось. Результат операции неизвестен — проверьте данные перед повтором.");
-      }
       var other = provider === "primary" ? "backup" : "primary";
       if (!(await probeApi(other))) {
         throw new Error("Нет связи с Cloudflare и HostiMan");
       }
       activeApi = other;
       lastApiProbeAt = Date.now();
-      return await fetch(apiUrl(other, route), Object.assign({}, options, { cache: "no-store" }));
+      if (method !== "GET") {
+        throw new Error("Соединение с " + apiName() + " доступно. Предыдущая операция могла выполниться — проверьте результат перед повтором.");
+      }
+      var fallbackController = new AbortController();
+      var fallbackTimer = setTimeout(function () { fallbackController.abort(); }, 15000);
+      try {
+        return await fetch(apiUrl(other, route), Object.assign({}, options, {
+          cache: "no-store", signal: fallbackController.signal
+        }));
+      } finally {
+        clearTimeout(fallbackTimer);
+      }
     } finally {
       clearTimeout(timer);
     }
