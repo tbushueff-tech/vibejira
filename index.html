@@ -514,33 +514,57 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
   async function encryptItems(itemsToEncrypt) {
     if (!encryptionKey) throw new Error("Буфер ещё не разблокирован");
-    var iv = crypto.getRandomValues(new Uint8Array(12));
-    var plaintext = new TextEncoder().encode(JSON.stringify(itemsToEncrypt));
-    var ciphertext = new Uint8Array(await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: iv },
-      encryptionKey,
-      plaintext
-    ));
-    return {
-      v: 1,
-      alg: "AES-256-GCM",
-      iv: bytesToB64(iv),
-      ciphertext: bytesToB64(ciphertext)
-    };
+    var encrypted = [];
+
+    for (var i = 0; i < itemsToEncrypt.length; i++) {
+      var item = itemsToEncrypt[i];
+      var iv = crypto.getRandomValues(new Uint8Array(12));
+      var plaintext = new TextEncoder().encode(JSON.stringify(item));
+      var ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        encryptionKey,
+        plaintext
+      ));
+
+      encrypted.push({
+        v: 2,
+        id: item.id,
+        expiresAt: item.expiresAt || (Date.now() + AUTO_DELETE_MS),
+        iv: bytesToB64(iv),
+        ciphertext: bytesToB64(ciphertext)
+      });
+    }
+
+    return { v: 2, items: encrypted };
   }
 
   async function decryptItems(envelope) {
     if (!encryptionKey) throw new Error("Буфер ещё не разблокирован");
-    if (!envelope || envelope.v !== 1 || !envelope.iv || !envelope.ciphertext) {
+    if (!envelope || envelope.v !== 2 || !Array.isArray(envelope.items)) {
       throw new Error("Неверный формат зашифрованного буфера");
     }
-    var plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: b64ToBytes(envelope.iv) },
-      encryptionKey,
-      b64ToBytes(envelope.ciphertext)
-    );
-    var decoded = JSON.parse(new TextDecoder().decode(plaintext));
-    if (!Array.isArray(decoded)) throw new Error("Зашифрованный буфер повреждён");
+
+    var decoded = [];
+    for (var i = 0; i < envelope.items.length; i++) {
+      var entry = envelope.items[i];
+      if (!entry || entry.v !== 2 || !entry.iv || !entry.ciphertext) {
+        throw new Error("Повреждённый зашифрованный элемент");
+      }
+
+      var plaintext = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: b64ToBytes(entry.iv) },
+        encryptionKey,
+        b64ToBytes(entry.ciphertext)
+      );
+      var item = JSON.parse(new TextDecoder().decode(plaintext));
+      if (!item || typeof item !== "object") {
+        throw new Error("Повреждённый зашифрованный элемент");
+      }
+      if (!item.id) item.id = entry.id;
+      if (!item.expiresAt) item.expiresAt = entry.expiresAt;
+      decoded.push(item);
+    }
+
     return decoded;
   }
 
@@ -1010,8 +1034,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       if (!res.ok) throw new Error("Worker HTTP " + res.status);
       var data = await res.json();
       if (Array.isArray(data)) {
-        // Одноразовая миграция старого открытого буфера:
-        // получаем его, сразу шифруем на клиенте и перезаписываем ciphertext.
+        // Одноразовая миграция старого открытого буфера.
         items = data;
         await saveGithub();
         await saveLocal();
