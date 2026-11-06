@@ -761,7 +761,103 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 <script>
 (function () {
   var KEY = "bufer-tekstov-v1";
-  var AUTH_URL = "https://vibejira.t-bushueff.workers.dev";
+  // Both addresses reach the same Cloudflare Worker/KV. HostiMan is a
+  // transport fallback, not a second database.
+  var PRIMARY_API_URL = "https://vibejira.t-bushueff.workers.dev";
+  var BACKUP_API_URL = "https://tbhelper.h1n.ru/api.php";
+  var activeApi = null;
+  var lastApiProbeAt = 0;
+  var apiSelectionInFlight = null;
+  var API_PROBE_INTERVAL_MS = 60000;
+
+  function apiUrl(provider, route) {
+    return provider === "backup"
+      ? BACKUP_API_URL + "?route=" + encodeURIComponent(route)
+      : PRIMARY_API_URL + route;
+  }
+
+  function apiName() {
+    return activeApi === "backup" ? "HostiMan" : "Cloudflare";
+  }
+
+  async function probeApi(provider) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, provider === "primary" ? 4500 : 6500);
+    try {
+      // An unauthenticated /auth/me always returns HTTP 401. That is a
+      // successful reachability check and does not read the user KV record.
+      var response = await fetch(apiUrl(provider, "/auth/me"), {
+        method: "GET", cache: "no-store", credentials: "omit",
+        signal: controller.signal
+      });
+      return response.status === 401 || response.ok;
+    } catch (e) {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function selectApi(force) {
+    if (!force && activeApi && Date.now() - lastApiProbeAt < API_PROBE_INTERVAL_MS) {
+      return activeApi;
+    }
+    if (apiSelectionInFlight) return apiSelectionInFlight;
+    apiSelectionInFlight = (async function () {
+      // Prefer the current working provider, so a blocked Cloudflare hostname
+      // is not retried for every request while the HostiMan relay is working.
+      var first = activeApi || "primary";
+      var second = first === "primary" ? "backup" : "primary";
+      if (await probeApi(first)) {
+        activeApi = first;
+      } else if (await probeApi(second)) {
+        activeApi = second;
+      } else {
+        activeApi = null;
+        throw new Error("Не удаётся подключиться ни к Cloudflare, ни к HostiMan");
+      }
+      lastApiProbeAt = Date.now();
+      return activeApi;
+    })();
+    try {
+      return await apiSelectionInFlight;
+    } finally {
+      apiSelectionInFlight = null;
+    }
+  }
+
+  async function apiFetch(route, options) {
+    options = options || {};
+    var method = (options.method || "GET").toUpperCase();
+    var provider = await selectApi(false);
+    var fetchOptions = Object.assign({ cache: "no-store" }, options);
+    // Timeouts apply to real API requests too, not only probes. The browser's
+    // network timeout can otherwise keep the app stuck for several minutes.
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 15000);
+    fetchOptions.signal = controller.signal;
+    try {
+      return await fetch(apiUrl(provider, route), fetchOptions);
+    } catch (e) {
+      // No blind POST retry: the first server may have accepted the write
+      // before the connection broke. Next interaction will pick a healthy API.
+      activeApi = null;
+      lastApiProbeAt = 0;
+      if (method !== "GET") {
+        throw new Error("Соединение прервалось. Результат операции неизвестен — проверьте данные перед повтором.");
+      }
+      var other = provider === "primary" ? "backup" : "primary";
+      if (!(await probeApi(other))) {
+        throw new Error("Нет связи с Cloudflare и HostiMan");
+      }
+      activeApi = other;
+      lastApiProbeAt = Date.now();
+      return await fetch(apiUrl(other, route), Object.assign({}, options, { cache: "no-store" }));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   var DATA_URL = "./data/texts.json";
   var REPO = "tbushueff-tech/vibejira";
   var items = [];
@@ -927,7 +1023,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   async function checkAuth() {
-    var res = await fetch(AUTH_URL + "/auth/me", {
+    var res = await apiFetch("/auth/me", {
       method: "GET",
       headers: authHeaders(),
       cache: "no-store"
@@ -1113,7 +1209,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   async function saveCryptoBundle(bundle) {
-    var res = await fetch(AUTH_URL + "/auth/crypto", {
+    var res = await apiFetch("/auth/crypto", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "text/plain;charset=UTF-8" }),
       body: JSON.stringify({ crypto: {
@@ -1198,7 +1294,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
       iv: bundle.iv,
       wrappedKey: bundle.wrappedKey
     };
-    var res = await fetch(AUTH_URL + "/auth/register", {
+    var res = await apiFetch("/auth/register", {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify({ username: username, password: password, crypto: cryptoPayload })
@@ -1212,7 +1308,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   async function login(username, password) {
-    var res = await fetch(AUTH_URL + "/auth/login", {
+    var res = await apiFetch("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify({ username: username, password: password })
@@ -1243,7 +1339,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
   async function logout() {
     try {
-      await fetch(AUTH_URL + "/auth/logout", {
+      await apiFetch("/auth/logout", {
         method: "POST",
         headers: authHeaders()
       });
@@ -1414,7 +1510,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     }
     profileSubmit.disabled = true;
     try {
-      var res = await fetch(AUTH_URL + "/auth/profile", {
+      var res = await apiFetch("/auth/profile", {
         method: "POST",
         headers: authHeaders({ "Content-Type": "text/plain;charset=UTF-8" }),
         body: JSON.stringify({ displayName: displayName, avatar: avatarDraft })
@@ -1500,7 +1596,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     passwordSubmit.disabled = true;
     try {
       var newBundle = await wrapExistingKey(encryptionKey, next);
-      var res = await fetch(AUTH_URL + "/auth/password", {
+      var res = await apiFetch("/auth/password", {
         method: "POST",
         headers: authHeaders({ "Content-Type": "text/plain;charset=UTF-8" }),
         body: JSON.stringify({
@@ -1890,8 +1986,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   // Contents: Read and write только для репозитория tbushueff-tech/vibejira.
   // Не используйте основной аккаунтный токен.
   // GitHub token хранится только в Cloudflare Worker.
-  // После деплоя Worker укажи его адрес здесь.
-  var WORKER_URL = "https://vibejira.t-bushueff.workers.dev";
+  // The routing between Cloudflare and HostiMan is handled by apiFetch().
   var BUFFER_KEY = "vibejira-buffer";
 
   function utf8b64(obj) {
@@ -1905,12 +2000,9 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
   async function saveGithub() {
     if (!registeredUser || !authToken || !encryptionKey) return;
-    if (!WORKER_URL || WORKER_URL.indexOf("REPLACE_WITH_YOUR_WORKER") !== -1) {
-      throw new Error("Адрес Cloudflare Worker ещё не указан");
-    }
     var envelope = await encryptItems(items);
 
-    var res = await fetch(WORKER_URL, {
+    var res = await apiFetch("/", {
       method: "POST",
       credentials: "include",
       headers: authHeaders({
@@ -1922,7 +2014,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
     if (!res.ok) {
       var body = await res.text();
-      throw new Error("Worker HTTP " + res.status + ": " + body);
+      throw new Error("API HTTP " + res.status + ": " + body);
     }
     lastCloudSaveAt = Date.now();
   }
@@ -1963,16 +2055,12 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     // Do not let that stale snapshot erase freshly saved local state.
     if (!force && lastCloudSaveAt && Date.now() - lastCloudSaveAt < 15000) return;
     try {
-      if (!WORKER_URL || WORKER_URL.indexOf("REPLACE_WITH_YOUR_WORKER") !== -1) {
-        throw new Error("Адрес Cloudflare Worker ещё не указан");
-      }
-
-      var res = await fetch(WORKER_URL + "?t=" + Date.now(), {
+      var res = await apiFetch("/", {
         credentials: "include",
         headers: authHeaders({ "X-Buffer-Key": BUFFER_KEY }),
         cache: "no-store"
       });
-      if (!res.ok) throw new Error("Worker HTTP " + res.status);
+      if (!res.ok) throw new Error("API HTTP " + res.status);
       var data = await res.json();
       if (Array.isArray(data)) {
         // Одноразовая миграция старого открытого буфера.
