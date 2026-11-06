@@ -140,6 +140,11 @@ button.ghost:hover { color: var(--fg); background: var(--surface-2); border-colo
 button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
 #login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(236, 240, 244, .88);
+  backdrop-filter: blur(4px);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -391,9 +396,28 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     loginPasswordEl.value = "";
     loginError.textContent = "";
     registerMode = false;
+    registerToggle.hidden = false;
     authDescription.textContent = "Войдите, чтобы получить доступ к общему буферу.";
     loginButton.textContent = "Войти";
     registerToggle.textContent = "Регистрация";
+    loginUserEl.readOnly = false;
+    loginUserEl.focus();
+  }
+
+  function showUnlock(username) {
+    // Сессия остаётся активной. После обновления страницы нам нужен только
+    // пароль для расшифровки ключа E2EE; повторно авторизовывать пользователя
+    // и "выбрасывать" его из приложения не нужно.
+    appEl.classList.remove("app-hidden");
+    loginScreen.style.display = "flex";
+    loginPasswordEl.value = "";
+    loginError.textContent = "";
+    registerMode = false;
+    registerToggle.hidden = true;
+    loginUserEl.value = username || "";
+    loginUserEl.readOnly = true;
+    authDescription.textContent = "Сессия активна. Введите пароль, чтобы разблокировать зашифрованный буфер.";
+    loginButton.textContent = "Разблокировать";
     loginUserEl.focus();
   }
 
@@ -1145,11 +1169,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
         // Сессия сохранена, но ключ шифрования намеренно не хранится
         // в localStorage. Пользователь должен снова ввести пароль,
         // чтобы разблокировать буфер.
-        showLogin();
-        authDescription.textContent = "Сессия активна. Введите пароль, чтобы разблокировать зашифрованный буфер.";
-        loginUserEl.value = auth.username || "";
-        loginError.textContent = "";
-        loginPasswordEl.focus();
+        showUnlock(auth.username || "");
       } else {
         showLogin();
       }
