@@ -467,6 +467,7 @@ export default {
 
         let valid = false;
         let cryptoBundle = null;
+        let profile = null;
         if (env.USER_STORE) {
           const recordRaw = await env.USER_STORE.get("user:" + username.toLowerCase());
           if (recordRaw) {
@@ -474,6 +475,7 @@ export default {
             const hash = await hashPassword(password, record.salt);
             valid = hash === record.hash;
             cryptoBundle = record.crypto || null;
+            if (valid) profile = record.profile || null;
           }
         }
 
@@ -579,10 +581,52 @@ export default {
       }
     }
 
+    // Profile data is separate from the E2EE clipboard: display name + small avatar.
+    if (url.pathname === "/auth/profile" && request.method === "POST") {
+      try {
+        if (origin !== ALLOWED_ORIGIN) {
+          return json({ ok: false, error: "Недопустимый источник запроса" }, 403, origin);
+        }
+        const session = await verifySession(request, env);
+        if (!session || !env.USER_STORE) {
+          return json({ ok: false, error: "Необходим вход в аккаунт" }, 401, origin);
+        }
+        const data = await request.json();
+        const displayName = String(data.displayName || "").trim();
+        const avatar = data.avatar === null ? null : data.avatar;
+        if (displayName.length < 1 || displayName.length > 40 || /[\u0000-\u001F\u007F]/.test(displayName)) {
+          return json({ ok: false, error: "Имя должно содержать от 1 до 40 символов" }, 400, origin);
+        }
+        if (avatar !== null && (typeof avatar !== "string" ||
+            avatar.length > 90000 ||
+            !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar))) {
+          return json({ ok: false, error: "Неверный формат или размер аватара" }, 400, origin);
+        }
+        const key = "user:" + String(session.username).toLowerCase();
+        const raw = await env.USER_STORE.get(key);
+        if (!raw) return json({ ok: false, error: "Аккаунт не найден" }, 404, origin);
+        const record = JSON.parse(raw);
+        record.profile = { displayName, avatar };
+        await env.USER_STORE.put(key, JSON.stringify(record));
+        return json({ ok: true, profile: record.profile }, 200, origin);
+      } catch (e) {
+        console.error("Profile update failed:", e);
+        return json({ ok: false, error: "Не удалось сохранить профиль" }, 500, origin);
+      }
+    }
+
     if (url.pathname === "/auth/me" && request.method === "GET") {
       const session = await verifySession(request, env);
       if (!session) return json({ authenticated: false }, 401, origin);
-      return json({ authenticated: true, username: session.username }, 200, origin);
+      const raw = env.USER_STORE
+        ? await env.USER_STORE.get("user:" + String(session.username).toLowerCase())
+        : null;
+      const record = raw ? JSON.parse(raw) : null;
+      return json({
+        authenticated: true,
+        username: session.username,
+        profile: record && record.profile ? record.profile : null
+      }, 200, origin);
     }
 
     if (url.pathname === "/auth/logout" && request.method === "POST") {
