@@ -1294,13 +1294,23 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     } catch (e) {}
   }
 
+  function formatExpiry(seconds) {
+    var left = Math.max(0, Math.ceil(seconds));
+    if (left >= 24 * 60 * 60) {
+      return Math.floor(left / (24 * 60 * 60)) + " дн.";
+    }
+    if (left >= 60 * 60) {
+      return Math.floor(left / (60 * 60)) + " ч";
+    }
+    var mins = Math.floor(left / 60);
+    var secs = left % 60;
+    return mins + ":" + String(secs).padStart(2, "0");
+  }
+
   function metaText(it) {
     var n = it.text.length, w = words(it.text), c = it.copies || 0;
-    var left = it.expiresAt ? Math.max(0, Math.ceil((it.expiresAt - Date.now()) / 1000)) : 0;
-    var mins = Math.floor(left / 60), secs = left % 60;
-    var expiry = it.expiresAt ? " · удалится через " + mins + ":" + String(secs).padStart(2, "0") : "";
     return n + " симв. · " + w + " " + plural(w, ["слово", "слова", "слов"]) +
-      " · скопировано " + c + " " + plural(c, ["раз", "раза", "раз"]) + expiry;
+      " · скопировано " + c + " " + plural(c, ["раз", "раза", "раз"]);
   }
 
   function matches(it) {
@@ -1323,7 +1333,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     if (it.example) head.appendChild(el("span", "badge", "пример"));
     if (it.expiresAt) {
       var left = Math.max(0, Math.ceil((it.expiresAt - Date.now()) / 1000));
-      var em = el("span", "expiry", "⏱ " + Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0"));
+      var em = el("span", "expiry", "⏱ " + formatExpiry(left));
       head.appendChild(em);
     }
     card.appendChild(head);
