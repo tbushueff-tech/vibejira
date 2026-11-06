@@ -260,7 +260,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   position: fixed;
   inset: 0;
   z-index: 50;
-  display: none;
+  display: flex;
   background: var(--bg);
   min-height: 100vh;
   align-items: center;
@@ -313,6 +313,28 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 .modal-close { border:0; background:transparent; font-size:20px; min-height:30px; padding:0 8px; }
 .modal-fields { display:flex; flex-direction:column; gap:12px; }
 
+.guest-disclaimer {
+  width: min(100%, 430px);
+}
+.guest-disclaimer .warning-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  background: #fff0b3;
+  color: #172b4d;
+  font-size: 22px;
+  font-weight: 800;
+}
+.guest-disclaimer h2 { margin: 0 0 8px; font-family: var(--font-display); font-size: 20px; }
+.guest-disclaimer p { margin: 0 0 14px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.guest-disclaimer ul { margin: 0 0 20px; padding-left: 20px; color: var(--fg); font-size: 14px; line-height: 1.55; }
+.guest-disclaimer li + li { margin-top: 7px; }
+.guest-disclaimer-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.guest-disclaimer-actions button { min-height: 38px; }
 .app-hidden { display: none !important; }
 .auth-bar { display: flex; align-items: center; gap: 8px; margin-left: 0; }
 #auth-user { color: #ffffff; font-weight: 600; }
@@ -458,6 +480,23 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   </form>
 </div>
 
+<div class="modal-backdrop" id="guest-disclaimer" hidden>
+  <div class="modal-card guest-disclaimer" role="dialog" aria-modal="true" aria-labelledby="guest-disclaimer-title">
+    <div class="warning-icon" aria-hidden="true">!</div>
+    <h2 id="guest-disclaimer-title">Гостевой режим</h2>
+    <p>Перед продолжением важно знать, как будут обрабатываться ваши данные.</p>
+    <ul>
+      <li><strong>Данные не шифруются.</strong> В гостевом режиме используется обычная память браузера.</li>
+      <li><strong>Срок хранения — 5 минут.</strong> После этого записи автоматически удаляются.</li>
+      <li><strong>Не размещайте конфиденциальную информацию.</strong> Данные могут быть доступны третьим лицам, имеющим доступ к этому устройству или браузеру.</li>
+    </ul>
+    <div class="guest-disclaimer-actions">
+      <button type="button" class="ghost" id="guest-cancel">Отмена</button>
+      <button type="button" class="primary" id="guest-confirm">Я понимаю, продолжить</button>
+    </div>
+  </div>
+</div>
+
 <div class="wrap app-hidden" id="app">
   <header>
     <div class="brand">
@@ -565,6 +604,9 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   var authUserEl = $("auth-user");
   var logoutButton = $("logout");
   var guestModeButton = $("guest-mode");
+  var guestDisclaimer = $("guest-disclaimer");
+  var guestCancel = $("guest-cancel");
+  var guestConfirm = $("guest-confirm");
   var accountButton = $("account-button");
   var accountDropdown = $("account-dropdown");
   var accountLoginButton = $("account-login");
@@ -1027,7 +1069,22 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   });
 
   guestModeButton.addEventListener("click", function () {
+    guestDisclaimer.hidden = false;
+    guestConfirm.focus();
+  });
+
+  guestCancel.addEventListener("click", function () {
+    guestDisclaimer.hidden = true;
+    guestModeButton.focus();
+  });
+
+  guestConfirm.addEventListener("click", function () {
+    guestDisclaimer.hidden = true;
     showGuest();
+  });
+
+  guestDisclaimer.addEventListener("click", function (e) {
+    if (e.target === guestDisclaimer) guestDisclaimer.hidden = true;
   });
 
   accountButton.addEventListener("click", function () {
@@ -1572,30 +1629,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   updateLiveCount();
   render();
 
+  // Every page load starts at the login screen. Guest mode is an explicit choice.
+  // A valid session is kept for API access after login, but never bypasses this screen.
   (async function () {
-    try {
-      var auth = await checkAuth();
-      if (auth && auth.authenticated) {
-        var restored = await restoreSessionEncryptionKey();
-        if (restored) {
-          showApp(auth.username || "");
-          var cachedItems = await loadLocal();
-          if (cachedItems) {
-            items = cachedItems;
-            render();
-          }
-          updateLiveCount();
-          render();
-          await loadGithub(false);
-        } else {
-          showUnlock(auth.username || "");
-        }
-      } else {
-        showGuest();
-      }
-    } catch (e) {
-      showGuest();
-    }
+    showLogin();
   })();
   setInterval(function () {
     var changed = purgeExpired(true);
