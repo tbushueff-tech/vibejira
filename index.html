@@ -798,7 +798,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
   function setAvatar(node, avatar, fallback) {
     node.replaceChildren();
-    if (typeof avatar === "string" && /^data:image\\/(png|jpeg|webp);base64,/.test(avatar)) {
+    if (typeof avatar === "string" && /^data:image\/(png|jpeg|webp);base64,/.test(avatar)) {
       var photo = document.createElement("img");
       photo.alt = "";
       photo.src = avatar;
@@ -1328,7 +1328,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     var file = profileAvatarFile.files && profileAvatarFile.files[0];
     if (!file) return;
     profileError.textContent = "";
-    if (!/^image\\/(png|jpeg|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
       profileError.textContent = "Выберите PNG, JPG или WebP до 5 МБ";
       return;
     }
