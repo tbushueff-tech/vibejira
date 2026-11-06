@@ -78,12 +78,12 @@ body {
 }
 .wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 
-.helper-logo { display:block; width: 152px; height:auto; }
-.brand-logo { display:flex; align-items:center; justify-content:center; background:#fff; border-radius:8px; padding:5px 11px; height:52px; width:198px; box-sizing:border-box; box-shadow:0 1px 2px rgba(9,30,66,.18); overflow:hidden; }
-.brand-logo .helper-logo { width:178px; height:auto; }
-.login-brand { display:flex; justify-content:center; margin:0 auto 22px; }
-.login-brand .brand-logo { width:290px; height:96px; border-radius:10px; padding:8px 14px; }
-.login-brand .brand-logo .helper-logo { width:262px; height:auto; }
+.helper-logo { display:block; width:100%; height:auto; }
+.brand-logo { display:flex; align-items:center; justify-content:center; background:#fff; border-radius:6px; padding:4px 8px; height:38px; width:158px; box-sizing:border-box; box-shadow:0 1px 2px rgba(9,30,66,.18); overflow:hidden; }
+.brand-logo .helper-logo { width:142px; height:auto; }
+.login-brand { display:flex; justify-content:center; margin:0 auto 20px; }
+.login-brand .brand-logo { width:270px; height:88px; border-radius:9px; padding:7px 12px; }
+.login-brand .brand-logo .helper-logo { width:246px; height:auto; }
 
 header {
   position: sticky;
@@ -94,11 +94,11 @@ header {
   gap: 10px;
   width: 100vw;
   margin: 0 0 20px calc(50% - 50vw);
-  padding: 8px max(20px, env(safe-area-inset-left, 0px)) 8px max(20px, env(safe-area-inset-right, 0px));
+  padding: 5px max(20px, env(safe-area-inset-left, 0px)) 5px max(20px, env(safe-area-inset-right, 0px));
   background: #0052cc;
   border-bottom: 1px solid rgba(0,0,0,.14);
   color: #ffffff;
-  min-height: 56px;
+  min-height: 42px;
   box-shadow: 0 1px 4px rgba(9,30,66,.18);
 }
 .brand { min-width: 0; display: flex; align-items: center; gap: 10px; flex: none; }
@@ -129,17 +129,17 @@ h1 {
 .search::before { content:""; position:absolute; left:12px; top:50%; width:12px; height:12px; transform:translateY(-60%); border:2px solid rgba(255,255,255,.95); border-radius:50%; pointer-events:none; z-index:1; box-sizing:border-box; }
 .search::after { content:""; position:absolute; left:24px; top:calc(50% + 4px); width:7px; height:2px; transform:rotate(45deg); transform-origin:left center; background:rgba(255,255,255,.95); border-radius:2px; pointer-events:none; z-index:1; }
 .search input[type="search"] {
-  background: rgba(255,255,255,.18);
-  color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
-  border: 1px solid rgba(255,255,255,.25);
+  background: #ffffff;
+  color: #172b4d;
+  box-shadow: inset 0 0 0 1px rgba(9,30,66,.16);
+  border: 1px solid rgba(9,30,66,.12);
   border-radius:4px;
-  min-height: 36px;
-  padding: 7px 10px 7px 34px;
+  min-height: 34px;
+  padding: 6px 10px 6px 34px;
   box-sizing:border-box;
 }
-.search input[type="search"]::placeholder { color: rgba(255,255,255,.95); opacity:1; }
-.search input[type="search"]:focus { background:rgba(255,255,255,.24); box-shadow: 0 0 0 2px rgba(255,255,255,.85); }
+.search input[type="search"]::placeholder { color: #5e6c84; opacity:1; }
+.search input[type="search"]:focus { background:#ffffff; box-shadow: 0 0 0 2px rgba(255,255,255,.85); }
 .account-menu { position: relative; flex: none; }
 .account-button {
   display: inline-flex;
@@ -457,17 +457,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
 <div id="login-screen">
   <form class="login-card" id="login-form" autocomplete="on">
-    <div class="login-brand"><div class="brand-logo"><svg class="helper-logo" viewBox="0 0 420 145" role="img" aria-label="Helper by bushueff">
-  <defs>
-    <linearGradient id="helperBlueA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20a4ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
-    <linearGradient id="helperBlueB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#31b3ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
-  </defs>
-  <path d="M20 76 76 18q10-10 25-10h46q12 0 5 10l-64 70q-8 9-20 9H27q-12 0-7-21Z" fill="url(#helperBlueA)"/>
-  <path d="M72 118 128 60q10-10 25-10h48q11 0 4 10l-64 70q-8 9-20 9H79q-13 0-7-21Z" fill="url(#helperBlueB)"/>
-  <path d="M72 88 105 52q10-11 27-11h45q12 0 5 10l-26 29q-8 9-20 9h-56q-9 0-8-1Z" fill="#0649c7" opacity=".9"/>
-  <text x="214" y="72" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800" fill="#07143b" letter-spacing="-2">Helper</text>
-  <text x="216" y="111" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="400" fill="#64748b">by bushueff</text>
-</svg></div></div>
+    <div class="login-brand"><div class="brand-logo"><img class="helper-logo" src="./assets/helper-logo.png" alt="Helper by bushueff"></div></div>
     <h1>Helper by bushueff</h1>
     <p id="auth-description">Войдите, чтобы получить доступ к общему буферу.</p>
     <div class="login-fields">
@@ -507,17 +497,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 <div class="wrap app-hidden" id="app">
   <header>
     <div class="brand">
-      <div class="brand-logo"><svg class="helper-logo" viewBox="0 0 420 145" role="img" aria-label="Helper by bushueff">
-  <defs>
-    <linearGradient id="helperBlueA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20a4ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
-    <linearGradient id="helperBlueB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#31b3ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
-  </defs>
-  <path d="M20 76 76 18q10-10 25-10h46q12 0 5 10l-64 70q-8 9-20 9H27q-12 0-7-21Z" fill="url(#helperBlueA)"/>
-  <path d="M72 118 128 60q10-10 25-10h48q11 0 4 10l-64 70q-8 9-20 9H79q-13 0-7-21Z" fill="url(#helperBlueB)"/>
-  <path d="M72 88 105 52q10-11 27-11h45q12 0 5 10l-26 29q-8 9-20 9h-56q-9 0-8-1Z" fill="#0649c7" opacity=".9"/>
-  <text x="214" y="72" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800" fill="#07143b" letter-spacing="-2">Helper</text>
-  <text x="216" y="111" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="400" fill="#64748b">by bushueff</text>
-</svg></div>
+      <div class="brand-logo"><img class="helper-logo" src="./assets/helper-logo.png" alt="Helper by bushueff"></div>
     </div>
     <nav class="nav-left" aria-label="Основная навигация">
       <button type="button" class="nav-button active">Clipboard</button>
