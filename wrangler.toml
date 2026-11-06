@@ -2,8 +2,6 @@ name = "vibejira"
 main = "worker/index.js"
 compatibility_date = "2026-11-05"
 
-[triggers]
-crons = ["* * * * *"]
 
 [[kv_namespaces]]
 binding = "USER_STORE"
