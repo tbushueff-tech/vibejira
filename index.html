@@ -509,18 +509,42 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   z-index: 20;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.search-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  border-radius: 6px;
+}
+.search-toggle:hover, .search-toggle[aria-expanded="true"] { background: rgba(255,255,255,.15); }
+.account-avatar { overflow: hidden; }
+.account-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.profile-card { width: min(100%, 440px); }
+.profile-preview-row { display: flex; align-items: center; gap: 16px; margin: 6px 0 20px; }
+.profile-avatar { width: 78px; height: 78px; flex: 0 0 78px; font-size: 28px; }
+.profile-upload-actions { display: flex; align-items: flex-start; flex-direction: column; gap: 5px; }
+.profile-file-button {
+  padding: 8px 12px; background: var(--accent-soft); color: var(--accent);
+  border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 13px;
+}
+.profile-file-button:hover { filter: brightness(.95); }
+.profile-note { font-size: 12px; line-height: 1.45; color: var(--muted); margin: 12px 0 0; }
 @media (max-width: 720px) {
-  /* Two clean header rows: brand/account, then navigation/search. */
   header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "brand account" "nav search";
+    grid-template-columns: minmax(0,1fr) 38px 40px;
+    grid-template-areas: "brand toggle account" "search search search";
     align-items: center;
-    column-gap: 10px;
-    row-gap: 8px;
-    padding: 10px max(16px, env(safe-area-inset-right, 0px))
-             10px max(16px, env(safe-area-inset-left, 0px));
-    min-height: 0;
+    column-gap: 8px;
+    row-gap: 0;
+    padding: 8px max(14px, env(safe-area-inset-right, 0px))
+             8px max(14px, env(safe-area-inset-left, 0px));
+    min-height: 56px;
     max-width: 100vw;
   }
   header .brand { grid-area: brand; min-width: 0; overflow: hidden; }
@@ -530,14 +554,15 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   header .header-brand-name { font-size: 22px; }
   header .header-brand-by { font-size: 11px; margin-top: 2px; }
   .nav-spacer { display: none; }
-  header .nav-left { grid-area: nav; width: auto; min-width: 0; }
-  header .nav-button { min-height: 36px; padding-inline: 12px; }
+  header .search-toggle { grid-area: toggle; display: inline-flex; }
   header .account-menu { grid-area: account; justify-self: end; min-width: 0; }
-  header .account-button { padding: 0 4px; gap: 4px; }
-  header .account-avatar { width: 30px; height: 30px; }
+  header .account-button { padding: 0 2px; gap: 4px; }
+  header .account-avatar { width: 32px; height: 32px; }
+  header .account-chevron { display: none; }
   #auth-user { display: none; }
-  header .search { grid-area: search; justify-self: end; width: min(46vw, 200px); min-width: 0; flex: none; }
-  header .search input[type="search"] { width: 100%; min-height: 36px; font-size: 14px; }
+  header .search { display: none; grid-area: search; width: 100%; min-width: 0; margin-top: 8px; }
+  header.search-open .search { display: block; }
+  header .search input[type="search"] { width: 100%; min-height: 38px; font-size: 16px; }
   .wrap { gap: 14px; }
   .composer { padding: 16px; gap: 12px; }
   .composer textarea { min-height: 110px; }
@@ -555,8 +580,6 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   header .header-brand-mark img { width: 129px; left: -15px; top: -6px; }
   header .header-brand-name { font-size: 20px; }
   header .header-brand-by { font-size: 10px; }
-  header .search { width: 155px; }
-  header .nav-button { padding-inline: 9px; font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
@@ -615,11 +638,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
         </span>
       </div>
     </div>
-    <nav class="nav-left" aria-label="Основная навигация">
-      <button type="button" class="nav-button active">Clipboard</button>
-    </nav>
     <div class="nav-spacer"></div>
-    <div class="search">
+    <button type="button" class="search-toggle" id="search-toggle" aria-label="Открыть поиск" aria-expanded="false" aria-controls="search-box">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.7" cy="10.7" r="6.5"/><path d="m16 16 5 5"/></svg>
+    </button>
+    <div class="search" id="search-box">
       <label class="cap" for="search">Поиск</label>
       <input type="search" id="search" placeholder="Поиск..." autocomplete="off">
     </div>
@@ -631,6 +654,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
       </button>
       <div class="account-dropdown" id="account-dropdown" hidden>
         <div class="menu-label" id="account-mode-label">Гостевой режим · 5 минут</div>
+        <button type="button" id="edit-profile" hidden>Мой профиль</button>
         <button type="button" id="change-password" hidden>Сменить пароль</button>
         <button type="button" id="account-login">Войти / зарегистрироваться</button>
         <button type="button" class="danger" id="logout" hidden>Выйти</button>
@@ -658,6 +682,27 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
   <div class="status"><span id="count"></span><span id="sync-status">Подключение к облаку…</span></div>
   <section class="grid" id="list" aria-label="Сохранённые тексты"></section>
+</div>
+<div class="modal-backdrop" id="profile-modal" hidden>
+  <form class="modal-card profile-card" id="profile-form">
+    <div class="modal-head">
+      <h2>Мой профиль</h2>
+      <button type="button" class="modal-close" id="profile-close" aria-label="Закрыть">×</button>
+    </div>
+    <div class="profile-preview-row">
+      <span class="account-avatar profile-avatar" id="profile-avatar-preview">?</span>
+      <div class="profile-upload-actions">
+        <label class="profile-file-button" for="profile-avatar-file">Загрузить фотографию</label>
+        <input id="profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <button type="button" class="ghost" id="profile-avatar-remove">Убрать фото</button>
+      </div>
+    </div>
+    <label class="cap" for="profile-name">Отображаемое имя</label>
+    <input id="profile-name" type="text" maxlength="40" required placeholder="Как к вам обращаться">
+    <p class="profile-note">Логин остаётся прежним. Имя и фотография сохраняются в профиле аккаунта и не входят в зашифрованный буфер.</p>
+    <div class="login-error" id="profile-error" role="alert"></div>
+    <button type="submit" class="primary login-button" id="profile-submit">Сохранить профиль</button>
+  </form>
 </div>
 <div class="modal-backdrop" id="password-modal" hidden>
   <form class="modal-card" id="password-form">
@@ -719,6 +764,21 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   var accountLoginButton = $("account-login");
   var accountModeLabel = $("account-mode-label");
   var accountAvatar = $("account-avatar");
+  var profileButton = $("edit-profile");
+  var profileModal = $("profile-modal");
+  var profileForm = $("profile-form");
+  var profileClose = $("profile-close");
+  var profileNameInput = $("profile-name");
+  var profileAvatarFile = $("profile-avatar-file");
+  var profileAvatarPreview = $("profile-avatar-preview");
+  var profileAvatarRemove = $("profile-avatar-remove");
+  var profileError = $("profile-error");
+  var profileSubmit = $("profile-submit");
+  var searchToggle = $("search-toggle");
+  var appHeader = document.querySelector("#app header");
+  var accountProfile = null;
+  var avatarDraft = null;
+  var accountLoginName = "";
   var changePasswordButton = $("change-password");
   var passwordModal = $("password-modal");
   var passwordForm = $("password-form");
@@ -736,14 +796,35 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     return h;
   }
 
-  function showApp(username) {
+  function setAvatar(node, avatar, fallback) {
+    node.replaceChildren();
+    if (typeof avatar === "string" && /^data:image\\/(png|jpeg|webp);base64,/.test(avatar)) {
+      var photo = document.createElement("img");
+      photo.alt = "";
+      photo.src = avatar;
+      node.appendChild(photo);
+    } else {
+      node.textContent = (fallback || "?").charAt(0).toUpperCase();
+    }
+  }
+
+  function applyProfile() {
+    var displayName = (accountProfile && accountProfile.displayName) || accountLoginName || "";
+    authUserEl.textContent = displayName;
+    accountButton.setAttribute("aria-label", "Профиль: " + displayName);
+    setAvatar(accountAvatar, accountProfile && accountProfile.avatar, displayName);
+  }
+
+  function showApp(username, profile) {
     registeredUser = true;
     AUTO_DELETE_MS = USER_AUTO_DELETE_MS;
     loginScreen.style.display = "none";
     appEl.classList.remove("app-hidden");
-    authUserEl.textContent = username || "";
-    accountAvatar.textContent = (username || "?").charAt(0).toUpperCase();
-    accountModeLabel.textContent = "Зарегистрированный аккаунт";
+    accountLoginName = username || "";
+    accountProfile = profile || null;
+    applyProfile();
+    accountModeLabel.textContent = "@" + accountLoginName;
+    profileButton.hidden = false;
     changePasswordButton.hidden = false;
     accountLoginButton.hidden = true;
     logoutButton.hidden = false;
@@ -758,8 +839,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     items = [];
     loginScreen.style.display = "none";
     appEl.classList.remove("app-hidden");
+    accountLoginName = "";
+    accountProfile = null;
     authUserEl.textContent = "Гость";
-    accountAvatar.textContent = "G";
+    setAvatar(accountAvatar, null, "G");
+    profileButton.hidden = true;
     accountModeLabel.textContent = "Без регистрации · 5 минут";
     changePasswordButton.hidden = true;
     accountLoginButton.hidden = false;
@@ -1124,6 +1208,8 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     encryptionKey = null;
     cryptoBundle = null;
     items = [];
+    accountProfile = null;
+    accountLoginName = "";
     localStorage.removeItem("buffer_auth_token");
     await clearSessionEncryptionKey();
     localStorage.removeItem(KEY);
@@ -1158,7 +1244,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
       } else {
         data = await login(username, password);
       }
-      showApp(data.username);
+      showApp(data.username, data.profile);
       var cachedItems = await loadLocal();
       if (cachedItems) {
         items = cachedItems;
@@ -1192,6 +1278,113 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
   guestDisclaimer.addEventListener("click", function (e) {
     if (e.target === guestDisclaimer) guestDisclaimer.hidden = true;
+  });
+
+  searchToggle.addEventListener("click", function () {
+    var opening = !appHeader.classList.contains("search-open");
+    appHeader.classList.toggle("search-open", opening);
+    searchToggle.setAttribute("aria-expanded", String(opening));
+    searchToggle.setAttribute("aria-label", opening ? "Закрыть поиск" : "Открыть поиск");
+    if (opening) {
+      $("search").focus();
+    } else {
+      $("search").value = "";
+      query = "";
+      render();
+    }
+  });
+
+  function previewProfileAvatar() {
+    setAvatar(profileAvatarPreview, avatarDraft, profileNameInput.value.trim() || accountLoginName);
+  }
+
+  profileButton.addEventListener("click", function () {
+    if (!registeredUser) return;
+    accountDropdown.hidden = true;
+    accountButton.setAttribute("aria-expanded", "false");
+    profileError.textContent = "";
+    profileNameInput.value = (accountProfile && accountProfile.displayName) || accountLoginName;
+    avatarDraft = accountProfile && accountProfile.avatar || null;
+    profileAvatarFile.value = "";
+    previewProfileAvatar();
+    profileModal.hidden = false;
+    profileNameInput.focus();
+  });
+
+  profileClose.addEventListener("click", function () { profileModal.hidden = true; });
+  profileModal.addEventListener("click", function (e) {
+    if (e.target === profileModal) profileModal.hidden = true;
+  });
+  profileNameInput.addEventListener("input", function () {
+    if (!avatarDraft) previewProfileAvatar();
+  });
+  profileAvatarRemove.addEventListener("click", function () {
+    avatarDraft = null;
+    profileAvatarFile.value = "";
+    previewProfileAvatar();
+  });
+
+  profileAvatarFile.addEventListener("change", async function () {
+    var file = profileAvatarFile.files && profileAvatarFile.files[0];
+    if (!file) return;
+    profileError.textContent = "";
+    if (!/^image\\/(png|jpeg|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+      profileError.textContent = "Выберите PNG, JPG или WebP до 5 МБ";
+      return;
+    }
+    try {
+      var sourceUrl = URL.createObjectURL(file);
+      var img = new Image();
+      try {
+        await new Promise(function (resolve, reject) {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = sourceUrl;
+        });
+        var canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 160;
+        var ctx = canvas.getContext("2d");
+        var side = Math.min(img.naturalWidth, img.naturalHeight);
+        ctx.drawImage(img, (img.naturalWidth - side) / 2,
+          (img.naturalHeight - side) / 2, side, side, 0, 0, 160, 160);
+        var result = canvas.toDataURL("image/jpeg", 0.78);
+        if (result.length > 90000) throw new Error("Изображение получилось слишком большим");
+        avatarDraft = result;
+        previewProfileAvatar();
+      } finally {
+        URL.revokeObjectURL(sourceUrl);
+      }
+    } catch (e) {
+      profileError.textContent = "Не удалось обработать фотографию";
+    }
+  });
+
+  profileForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var displayName = profileNameInput.value.trim();
+    profileError.textContent = "";
+    if (!displayName || displayName.length > 40) {
+      profileError.textContent = "Имя: от 1 до 40 символов";
+      return;
+    }
+    profileSubmit.disabled = true;
+    try {
+      var res = await fetch(AUTH_URL + "/auth/profile", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "text/plain;charset=UTF-8" }),
+        body: JSON.stringify({ displayName: displayName, avatar: avatarDraft })
+      });
+      var response = await res.json();
+      if (!res.ok) throw new Error(response.error || "Не удалось сохранить профиль");
+      accountProfile = response.profile;
+      applyProfile();
+      profileModal.hidden = true;
+      toast("Профиль сохранён");
+    } catch (e) {
+      profileError.textContent = e.message || "Ошибка сохранения профиля";
+    } finally {
+      profileSubmit.disabled = false;
+    }
   });
 
   accountButton.addEventListener("click", function () {
