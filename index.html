@@ -352,6 +352,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   var githubReady = false;
   var pending = false;
   var lastCloudSaveAt = 0;
+  var localCacheLoadedAt = 0;
   var AUTO_DELETE_MS = 5 * 60 * 1000;
 
   var $ = function (id) { return document.getElementById(id); };
@@ -665,6 +666,11 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
         data = await login(username, password);
       }
       showApp(data.username);
+      var cachedItems = await loadLocal();
+      if (cachedItems) {
+        items = cachedItems;
+        render();
+      }
       updateLiveCount();
       render();
       await loadGithub(true);
@@ -709,7 +715,9 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       if (raw === null) return null;
       var envelope = JSON.parse(raw);
       if (envelope && envelope.v === 2 && Array.isArray(envelope.items)) {
-        return await decryptItems(envelope);
+        var decoded = await decryptItems(envelope);
+        localCacheLoadedAt = Date.now();
+        return decoded;
       }
       // Старый незашифрованный локальный буфер больше не используем.
       localStorage.removeItem(KEY);
@@ -1045,8 +1053,20 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
         await saveGithub();
         await saveLocal();
       } else {
-        items = await decryptItems(data);
-        await saveLocal();
+        var remoteItems = await decryptItems(data);
+        // Immediately after a reload/login, the local encrypted cache may be
+        // newer than a temporarily stale KV list() result.
+        if (
+          remoteItems.length === 0 &&
+          items.length > 0 &&
+          localCacheLoadedAt &&
+          Date.now() - localCacheLoadedAt < 15000
+        ) {
+          await saveGithub();
+        } else {
+          items = remoteItems;
+          await saveLocal();
+        }
       }
 
       var expiryChanged = ensureExpiry(items);
