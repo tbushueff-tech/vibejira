@@ -351,6 +351,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   var toastTimer = null;
   var githubReady = false;
   var pending = false;
+  var lastCloudSaveAt = 0;
   var AUTO_DELETE_MS = 5 * 60 * 1000;
 
   var $ = function (id) { return document.getElementById(id); };
@@ -707,7 +708,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       var raw = localStorage.getItem(KEY);
       if (raw === null) return null;
       var envelope = JSON.parse(raw);
-      if (envelope && envelope.v === 1 && envelope.ciphertext) {
+      if (envelope && envelope.v === 2 && Array.isArray(envelope.items)) {
         return await decryptItems(envelope);
       }
       // Старый незашифрованный локальный буфер больше не используем.
@@ -999,6 +1000,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       var body = await res.text();
       throw new Error("Worker HTTP " + res.status + ": " + body);
     }
+    lastCloudSaveAt = Date.now();
   }
 
   async function queueChange(op, item) {
@@ -1021,6 +1023,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
   async function loadGithub(force) {
     if (pending && !force) return;
+    // Cloudflare KV is eventually consistent: immediately after a successful
+    // write, a list() request can briefly return the previous snapshot.
+    // Do not let that stale snapshot erase freshly saved local state.
+    if (!force && lastCloudSaveAt && Date.now() - lastCloudSaveAt < 15000) return;
     try {
       if (!WORKER_URL || WORKER_URL.indexOf("REPLACE_WITH_YOUR_WORKER") !== -1) {
         throw new Error("Адрес Cloudflare Worker ещё не указан");
