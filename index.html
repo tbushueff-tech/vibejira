@@ -778,6 +778,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   var appHeader = document.querySelector("#app header");
   var accountProfile = null;
   var avatarDraft = null;
+  var deleteArmedUntil = Object.create(null);
   var accountLoginName = "";
   var changePasswordButton = $("change-password");
   var passwordModal = $("password-modal");
@@ -1687,20 +1688,19 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     edit.addEventListener("click", function () { startEdit(it.id); });
     actions.appendChild(edit);
 
-    var del = el("button", "ghost danger", "Удалить");
+    // Keep confirmation state outside the DOM: cards are rebuilt by the countdown.
+    var isDeleteArmed = (deleteArmedUntil[it.id] || 0) > Date.now();
+    var del = el("button", "ghost danger", isDeleteArmed ? "Удалить насовсем?" : "Удалить");
     del.type = "button";
-    var armTimer = null;
+    if (isDeleteArmed) del.classList.add("armed");
     del.addEventListener("click", function () {
-      if (!del.classList.contains("armed")) {
+      if ((deleteArmedUntil[it.id] || 0) <= Date.now()) {
+        deleteArmedUntil[it.id] = Date.now() + 8000;
         del.classList.add("armed");
         del.textContent = "Удалить насовсем?";
-        armTimer = setTimeout(function () {
-          del.classList.remove("armed");
-          del.textContent = "Удалить";
-        }, 3000);
         return;
       }
-      clearTimeout(armTimer);
+      delete deleteArmedUntil[it.id];
       items = items.filter(function (x) { return x.id !== it.id; });
       if (editingId === it.id) stopEdit();
       saveLocal();
@@ -1939,10 +1939,39 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   updateLiveCount();
   render();
 
-  // Every page load starts at the login screen. Guest mode is an explicit choice.
-  // A valid session is kept for API access after login, but never bypasses this screen.
+  // Restore a valid registered session on refresh. Guests start at the login screen.
   (async function () {
-    showLogin();
+    if (!authToken) {
+      showLogin();
+      return;
+    }
+    try {
+      var session = await checkAuth();
+      if (!session || !session.authenticated) {
+        authToken = "";
+        localStorage.removeItem("buffer_auth_token");
+        encryptionKey = null;
+        showLogin();
+        return;
+      }
+      var restored = await restoreSessionEncryptionKey();
+      if (!restored) {
+        showUnlock(session.username || "");
+        return;
+      }
+      showApp(session.username || "", session.profile || null);
+      var cachedItems = await loadLocal();
+      if (cachedItems) {
+        items = cachedItems;
+        render();
+      }
+      updateLiveCount();
+      render();
+      await loadGithub(false);
+    } catch (e) {
+      console.error("Session restore failed:", e);
+      showLogin();
+    }
   })();
   setInterval(function () {
     var changed = purgeExpired(true);
