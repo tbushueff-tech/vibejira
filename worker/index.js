@@ -89,17 +89,70 @@ async function writeFile(items, sha, message, env) {
   }
 }
 
-async function getUserBuffer(env, username) {
-  const key = "buffer:" + username.toLowerCase();
-  const raw = await env.USER_STORE.get(key);
-  if (!raw) return [];
-  const items = JSON.parse(raw);
-  return Array.isArray(items) ? items : [];
+function bufferPrefix(username) {
+  return "buffer:" + username.toLowerCase() + ":";
 }
 
-async function saveUserBuffer(env, username, items) {
-  const key = "buffer:" + username.toLowerCase();
-  await env.USER_STORE.put(key, JSON.stringify(items));
+async function getEncryptedUserBuffer(env, username) {
+  const prefix = bufferPrefix(username);
+  let cursor;
+  const encryptedItems = [];
+  do {
+    const page = await env.USER_STORE.list({ prefix, cursor });
+    const names = page.keys.map(key => key.name);
+    if (names.length) {
+      const values = await env.USER_STORE.get(names);
+      for (const name of names) {
+        const raw = values.get(name);
+        if (!raw) continue;
+        try {
+          const envelope = JSON.parse(raw);
+          if (envelope && envelope.v === 2) encryptedItems.push(envelope);
+        } catch (e) {
+          console.error("Invalid encrypted buffer item:", name, e);
+        }
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return { v: 2, items: encryptedItems };
+}
+
+async function saveEncryptedUserBuffer(env, username, payload) {
+  const prefix = bufferPrefix(username);
+  const incoming = payload.items;
+  const incomingIds = new Set();
+  let cursor;
+  const existingNames = [];
+
+  do {
+    const page = await env.USER_STORE.list({ prefix, cursor });
+    for (const key of page.keys) existingNames.push(key.name);
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  for (const item of incoming) {
+    if (!item || item.v !== 2 || typeof item.id !== "string" ||
+        typeof item.expiresAt !== "number" ||
+        typeof item.iv !== "string" || typeof item.ciphertext !== "string") {
+      throw new Error("Invalid encrypted buffer item");
+    }
+    incomingIds.add(item.id);
+    const expiresAtSeconds = Math.floor(item.expiresAt / 1000);
+    const minExpiration = Math.floor(Date.now() / 1000) + 60;
+    await env.USER_STORE.put(
+      prefix + item.id,
+      JSON.stringify(item),
+      { expiration: Math.max(expiresAtSeconds, minExpiration) }
+    );
+  }
+
+  for (const name of existingNames) {
+    const id = name.slice(prefix.length);
+    if (!incomingIds.has(id)) await env.USER_STORE.delete(name);
+  }
+
+  await env.USER_STORE.delete("buffer:" + username.toLowerCase());
 }
 
 function normalizeBuffer(items, now) {
@@ -139,13 +192,16 @@ async function cleanupExpiredBuffers(env) {
   do {
     const page = await env.USER_STORE.list({ prefix: "buffer:", cursor });
     for (const key of page.keys) {
+      if (key.name.includes(":")) {
+        count++;
+        continue;
+      }
+
       const raw = await env.USER_STORE.get(key.name);
       if (!raw) continue;
-
       try {
         const items = JSON.parse(raw);
         if (!Array.isArray(items)) continue;
-
         const result = normalizeBuffer(items, Date.now());
         if (result.changed) {
           await env.USER_STORE.put(key.name, JSON.stringify(result.normalized));
@@ -153,10 +209,9 @@ async function cleanupExpiredBuffers(env) {
         }
         count += result.normalized.length;
       } catch (e) {
-        console.error("Invalid buffer:", key.name, e);
+        console.error("Invalid legacy buffer:", key.name, e);
       }
     }
-
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
 
@@ -478,50 +533,30 @@ export default {
       const now = Date.now();
 
       if (request.method === "GET") {
-        const items = await getUserBuffer(env, username);
-        const result = normalizeBuffer(items, now);
-
-        if (result.changed) {
-          await saveUserBuffer(env, username, result.normalized);
+        const encrypted = await getEncryptedUserBuffer(env, username);
+        if (encrypted.items.length > 0) {
+          return json(encrypted, 200, origin);
         }
 
-        return new Response(JSON.stringify(result.normalized), {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            ...corsHeaders(origin, request)
+        const legacyRaw = await env.USER_STORE.get("buffer:" + username.toLowerCase());
+        if (legacyRaw) {
+          try {
+            const legacyItems = JSON.parse(legacyRaw);
+            if (Array.isArray(legacyItems)) return json(legacyItems, 200, origin);
+          } catch (e) {
+            console.error("Invalid legacy buffer:", e);
           }
-        });
+        }
+
+        return json({ v: 2, items: [] }, 200, origin);
       }
 
       if (request.method === "POST") {
         const data = await request.json();
-        if (!Array.isArray(data)) {
-          return json({ ok: false, error: "Body must be an array" }, 400, origin);
+        if (!data || data.v !== 2 || !Array.isArray(data.items)) {
+          return json({ ok: false, error: "Encrypted buffer required" }, 400, origin);
         }
-
-        const current = await getUserBuffer(env, username);
-        const existingById = new Map(
-          current.map(item => [item.id, item])
-        );
-
-        const normalized = data.map(item => {
-          if (item.expiresAt) return item;
-
-          const old = existingById.get(item.id);
-          if (old && old.expiresAt) {
-            return { ...item, expiresAt: old.expiresAt };
-          }
-
-          return {
-            ...item,
-            expiresAt: item.createdAt
-              ? item.createdAt + AUTO_DELETE_MS
-              : now + AUTO_DELETE_MS
-          };
-        });
-
-        await saveUserBuffer(env, username, normalized);
+        await saveEncryptedUserBuffer(env, username, data);
         return json({ ok: true }, 200, origin);
       }
 
