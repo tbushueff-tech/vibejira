@@ -80,15 +80,16 @@ body {
 
 .logo-mark {
   flex: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  background: #1868db;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.16);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
 }
-.logo-mark svg { width: 16px; height: 16px; display: block; }
+.logo-mark svg { width: 20px; height: 20px; display: block; }
 
 header {
   position: sticky;
@@ -97,21 +98,23 @@ header {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))) 20px calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
-  padding: 8px max(16px, env(safe-area-inset-left, 0px)) 8px max(16px, env(safe-area-inset-right, 0px));
-  background: #101214;
-  border-bottom: 1px solid #2b2f33;
+  width: 100vw;
+  margin: 0 0 20px calc(50% - 50vw);
+  padding: 8px max(20px, env(safe-area-inset-left, 0px)) 8px max(20px, env(safe-area-inset-right, 0px));
+  background: #0052cc;
+  border-bottom: 1px solid rgba(0,0,0,.14);
   color: #ffffff;
   min-height: 56px;
+  box-shadow: 0 1px 4px rgba(9,30,66,.18);
 }
-.brand { min-width: 0; display: flex; align-items: center; gap: 9px; flex: none; }
+.brand { min-width: 0; display: flex; align-items: center; gap: 10px; flex: none; }
 .brand-text { min-width: 0; }
 h1 {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 16px;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   margin: 0;
   text-wrap: balance;
 }
@@ -119,19 +122,26 @@ h1 {
 .nav-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .nav-button {
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 4px;
   background: transparent;
-  color: #c7d1db;
+  color: rgba(255,255,255,.86);
   font-weight: 600;
 }
-.nav-button:hover, .nav-button.active { background: #22272b; color: #ffffff; }
+.nav-button:hover, .nav-button.active { background: rgba(255,255,255,.14); color: #ffffff; }
 .nav-spacer { flex: 1 1 auto; min-width: 8px; }
-.search { flex: 0 1 340px; width: min(340px, 30vw); min-width: 180px; }
-.search input[type="search"] { background: #22272b; color: #ffffff; box-shadow: inset 0 0 0 1px #38414a; border-color: transparent; }
-.search input[type="search"]::placeholder { color: #9fadbb; }
-.search input[type="search"]:focus { box-shadow: 0 0 0 2px #579dff; }
+.search { flex: 0 0 220px; width: 220px; min-width: 160px; }
+.search input[type="search"] {
+  background: rgba(255,255,255,.16);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+  border-color: transparent;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+.search input[type="search"]::placeholder { color: rgba(255,255,255,.78); }
+.search input[type="search"]:focus { box-shadow: 0 0 0 2px rgba(255,255,255,.75); }
 .account-menu { position: relative; flex: none; }
 .account-button {
   display: inline-flex;
@@ -140,11 +150,11 @@ h1 {
   min-height: 36px;
   padding: 0 8px 0 10px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 4px;
   background: transparent;
   color: #ffffff;
 }
-.account-button:hover, .account-button[aria-expanded="true"] { background: #22272b; }
+.account-button:hover, .account-button[aria-expanded="true"] { background: rgba(255,255,255,.14); }
 .account-avatar {
   width: 28px;
   height: 28px;
@@ -152,12 +162,12 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #1868db;
+  background: #de350b;
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
 }
-.account-chevron { opacity: .7; }
+.account-chevron { opacity: .82; }
 .account-dropdown {
   position: absolute;
   right: 0;
@@ -452,14 +462,15 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   <header>
     <div class="brand">
       <span class="logo-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none">
-        <path d="M8 8h4v6h8V8h4v16h-4v-6h-8v6H8V8Z" fill="white"/>
-        <path d="M25 12.5c1.5 0 2.7 1.2 2.7 2.7S26.5 18 25 18h-2v-3h2v-2.5Z" fill="#9fadbb"/>
+        <rect x="7" y="5" width="18" height="23" rx="4" fill="white"/>
+        <rect x="11" y="3" width="10" height="5" rx="2.5" fill="white"/>
+        <path d="M11 14h10M11 19h6" stroke="#0052cc" stroke-width="2" stroke-linecap="round"/>
+        <path d="m20 21 1.8 1.8L25 19.5" stroke="#0052cc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg></span>
-      <div class="brand-text"><h1>Helper <span style="font-weight:500;color:#9fadbb">by bushueff</span></h1></div>
+      <div class="brand-text"><h1>Helper <span style="font-weight:500;color:rgba(255,255,255,.72)">by bushueff</span></h1></div>
     </div>
     <nav class="nav-left" aria-label="Основная навигация">
       <button type="button" class="nav-button active">Clipboard</button>
-      <button type="button" class="nav-button" disabled title="Скоро">+</button>
     </nav>
     <div class="nav-spacer"></div>
     <div class="search">
