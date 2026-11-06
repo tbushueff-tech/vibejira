@@ -79,7 +79,11 @@ body {
 .wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 
 .helper-logo { display:block; width: 152px; height:auto; }
-.login-card .helper-logo { width: 190px; margin: 0 auto 18px; }
+.brand-logo { display:flex; align-items:center; justify-content:center; background:#fff; border-radius:7px; padding:4px 10px; height:52px; width:198px; box-sizing:border-box; box-shadow:0 1px 2px rgba(9,30,66,.18); }
+.brand-logo .helper-logo { width:178px; }
+.login-brand { display:flex; justify-content:center; margin:0 auto 20px; }
+.login-brand .brand-logo { width:230px; height:60px; border-radius:9px; padding:5px 12px; }
+.login-brand .brand-logo .helper-logo { width:205px; }
 
 header {
   position: sticky;
@@ -98,8 +102,6 @@ header {
   box-shadow: 0 1px 4px rgba(9,30,66,.18);
 }
 .brand { min-width: 0; display: flex; align-items: center; gap: 10px; flex: none; }
-.brand-logo { display:flex; align-items:center; background:#fff; border-radius:7px; padding:4px 9px; height:38px; box-sizing:border-box; }
-.brand-logo .helper-logo { width:128px; }
 .brand-text { min-width: 0; }
 h1 {
   font-family: var(--font-display);
@@ -123,17 +125,20 @@ h1 {
 }
 .nav-button:hover, .nav-button.active { background: rgba(255,255,255,.14); color: #ffffff; }
 .nav-spacer { flex: 1 1 auto; min-width: 8px; }
-.search { flex: 0 0 220px; width: 220px; min-width: 160px; }
+.search { flex: 0 0 220px; width: 220px; min-width: 160px; position:relative; }
+.search::before { content:"⌕"; position:absolute; left:11px; top:50%; transform:translateY(-53%); color:rgba(255,255,255,.9); font-size:20px; line-height:1; pointer-events:none; z-index:1; }
 .search input[type="search"] {
-  background: rgba(255,255,255,.16);
+  background: rgba(255,255,255,.18);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
-  border-color: transparent;
-  min-height: 34px;
-  padding: 7px 10px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius:4px;
+  min-height: 36px;
+  padding: 7px 10px 7px 34px;
+  box-sizing:border-box;
 }
-.search input[type="search"]::placeholder { color: rgba(255,255,255,.78); }
-.search input[type="search"]:focus { box-shadow: 0 0 0 2px rgba(255,255,255,.75); }
+.search input[type="search"]::placeholder { color: rgba(255,255,255,.95); opacity:1; }
+.search input[type="search"]:focus { background:rgba(255,255,255,.24); box-shadow: 0 0 0 2px rgba(255,255,255,.85); }
 .account-menu { position: relative; flex: none; }
 .account-button {
   display: inline-flex;
@@ -451,7 +456,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
 <div id="login-screen">
   <form class="login-card" id="login-form" autocomplete="on">
-    <svg class="helper-logo" viewBox="0 0 420 145" role="img" aria-label="Helper by bushueff">
+    <div class="login-brand"><div class="brand-logo"><svg class="helper-logo" viewBox="0 0 420 145" role="img" aria-label="Helper by bushueff">
   <defs>
     <linearGradient id="helperBlueA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20a4ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
     <linearGradient id="helperBlueB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#31b3ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
@@ -462,7 +467,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   <text x="214" y="72" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800" fill="#07143b" letter-spacing="-2">Helper</text>
   <text x="216" y="111" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="400" fill="#64748b">by bushueff</text>
 </svg>
-    <h1>Helper by bushueff</h1>
+    </svg></div></div>
     <p id="auth-description">Войдите, чтобы получить доступ к общему буферу.</p>
     <div class="login-fields">
       <div>
