@@ -1541,12 +1541,14 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   function ensureExpiry(itemsList) {
-    var now = Date.now();
+    // Assign expiry only to old records that lack one.
+    // Never renew an existing expiry during polling: doing so triggered
+    // an unnecessary KV write every 30 seconds (2,880 writes per day/tab).
     var changed = false;
+    var now = Date.now();
     itemsList.forEach(function (it) {
-      var target = now + AUTO_DELETE_MS;
-      if (!it.expiresAt || (registeredUser && it.expiresAt < target)) {
-        it.expiresAt = target;
+      if (!Number.isFinite(it.expiresAt) || it.expiresAt <= 0) {
+        it.expiresAt = now + AUTO_DELETE_MS;
         changed = true;
       }
     });
