@@ -126,8 +126,8 @@ h1 {
 .nav-button:hover, .nav-button.active { background: rgba(255,255,255,.14); color: #ffffff; }
 .nav-spacer { flex: 1 1 auto; min-width: 8px; }
 .search { flex: 0 0 220px; width: 220px; min-width: 160px; position:relative; }
-.search::before { content:""; position:absolute; left:12px; top:50%; width:12px; height:12px; transform:translateY(-60%); border:2px solid rgba(255,255,255,.95); border-radius:50%; pointer-events:none; z-index:1; box-sizing:border-box; }
-.search::after { content:""; position:absolute; left:24px; top:calc(50% + 4px); width:7px; height:2px; transform:rotate(45deg); transform-origin:left center; background:rgba(255,255,255,.95); border-radius:2px; pointer-events:none; z-index:1; }
+.search::before { content:""; position:absolute; left:12px; top:50%; width:12px; height:12px; transform:translateY(-60%); border:2px solid #5e6c84; border-radius:50%; pointer-events:none; z-index:1; box-sizing:border-box; }
+.search::after { content:""; position:absolute; left:24px; top:calc(50% + 4px); width:7px; height:2px; transform:rotate(45deg); transform-origin:left center; background:#5e6c84; border-radius:2px; pointer-events:none; z-index:1; }
 .search input[type="search"] {
   background: #ffffff;
   color: #172b4d;
@@ -138,7 +138,7 @@ h1 {
   padding: 6px 10px 6px 34px;
   box-sizing:border-box;
 }
-.search input[type="search"]::placeholder { color: #5e6c84; opacity:1; }
+.search input[type="search"]::placeholder { color: #42526e; opacity:1; }
 .search input[type="search"]:focus { background:#ffffff; box-shadow: 0 0 0 2px rgba(255,255,255,.85); }
 .account-menu { position: relative; flex: none; }
 .account-button {
@@ -205,7 +205,7 @@ input[type="text"], input[type="password"], input[type="search"], textarea {
   padding: 9px 11px;
   min-height: 40px;
 }
-.search input[type="search"] { background: var(--surface-2); box-shadow: inset 0 0 0 1px transparent; }
+/* Search must keep its own contrasting background, without being reset by generic input styles. */
 textarea { resize: vertical; min-height: 120px; font-family: var(--font-mono); font-size: 13px; line-height: 1.55; }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -457,8 +457,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
 <div id="login-screen">
   <form class="login-card" id="login-form" autocomplete="on">
-    <div class="login-brand"><div class="brand-logo"><img class="helper-logo" src="./assets/helper-logo.png" alt="Helper by bushueff"></div></div>
-    <h1>Helper by bushueff</h1>
+    <div class="login-brand"><div class="brand-logo"><img class="helper-logo" src="./assets/helper-logo-v2.png" alt="Helper by bushueff"></div></div>
     <p id="auth-description">Войдите, чтобы получить доступ к общему буферу.</p>
     <div class="login-fields">
       <div>
@@ -497,7 +496,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 <div class="wrap app-hidden" id="app">
   <header>
     <div class="brand">
-      <div class="brand-logo"><img class="helper-logo" src="./assets/helper-logo.png" alt="Helper by bushueff"></div>
+      <div class="brand-logo"><img class="helper-logo" src="./assets/helper-logo-v2.png" alt="Helper by bushueff"></div>
     </div>
     <nav class="nav-left" aria-label="Основная навигация">
       <button type="button" class="nav-button active">Clipboard</button>
