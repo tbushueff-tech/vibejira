@@ -192,7 +192,7 @@ async function cleanupExpiredBuffers(env) {
   do {
     const page = await env.USER_STORE.list({ prefix: "buffer:", cursor });
     for (const key of page.keys) {
-      if (key.name.includes(":")) {
+      if (key.name.split(":").length >= 3) {
         count++;
         continue;
       }
