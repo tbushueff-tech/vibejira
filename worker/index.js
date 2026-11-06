@@ -453,8 +453,13 @@ export default {
           crypto: cryptoBundle,
           createdAt: Date.now()
         }));
-        // New accounts cannot have legacy per-item records. Skip scans entirely.
-        await env.USER_STORE.put(legacyMigrationMarkerKey(username), "1");
+        // New accounts have no legacy per-item records. This is an optional
+        // optimization: marker failure must not leave registration half-failed.
+        try {
+          await env.USER_STORE.put(legacyMigrationMarkerKey(username), "1");
+        } catch (e) {
+          console.warn("Legacy marker creation failed for new account:", e);
+        }
 
         const token = await createSession(username, env);
         return json(
