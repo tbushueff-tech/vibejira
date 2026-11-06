@@ -80,10 +80,10 @@ body {
 
 .logo-mark {
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 7px;
-  background: var(--accent);
+  background: #1868db;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -91,29 +91,91 @@ body {
 .logo-mark svg { width: 16px; height: 16px; display: block; }
 
 header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
-  padding: 14px max(16px, env(safe-area-inset-left, 0px)) 14px max(16px, env(safe-area-inset-right, 0px));
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  gap: 10px;
+  margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))) 20px calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  padding: 8px max(16px, env(safe-area-inset-left, 0px)) 8px max(16px, env(safe-area-inset-right, 0px));
+  background: #101214;
+  border-bottom: 1px solid #2b2f33;
+  color: #ffffff;
+  min-height: 56px;
 }
-.brand { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.brand { min-width: 0; display: flex; align-items: center; gap: 9px; flex: none; }
 .brand-text { min-width: 0; }
 h1 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.2;
   letter-spacing: -0.01em;
   margin: 0;
   text-wrap: balance;
 }
 .lead { display: none; }
-.search { flex: 1 1 240px; max-width: 320px; min-width: 0; }
+.nav-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.nav-button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #c7d1db;
+  font-weight: 600;
+}
+.nav-button:hover, .nav-button.active { background: #22272b; color: #ffffff; }
+.nav-spacer { flex: 1 1 auto; min-width: 8px; }
+.search { flex: 0 1 340px; width: min(340px, 30vw); min-width: 180px; }
+.search input[type="search"] { background: #22272b; color: #ffffff; box-shadow: inset 0 0 0 1px #38414a; border-color: transparent; }
+.search input[type="search"]::placeholder { color: #9fadbb; }
+.search input[type="search"]:focus { box-shadow: 0 0 0 2px #579dff; }
+.account-menu { position: relative; flex: none; }
+.account-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 8px 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #ffffff;
+}
+.account-button:hover, .account-button[aria-expanded="true"] { background: #22272b; }
+.account-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #1868db;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.account-chevron { opacity: .7; }
+.account-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 210px;
+  padding: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.account-dropdown[hidden] { display: none; }
+.account-dropdown .menu-label { padding: 8px 10px 5px; font-size: 11px; color: var(--muted); }
+.account-dropdown button { width: 100%; text-align: left; border: 0; background: transparent; min-height: 34px; }
+.account-dropdown button:hover { background: var(--surface-2); }
+.account-dropdown button.danger:hover { color: var(--danger); background: transparent; }
+
 .search label.cap { display: none; }
 
 label.cap {
@@ -224,23 +286,27 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   margin-top: 10px;
 }
 .login-button { width: 100%; margin-top: 14px; min-height: 40px; }
+.guest-button { margin-top: 8px; width: 100%; }
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(9,30,66,.54);
+}
+.modal-backdrop[hidden] { display: none; }
+.modal-card {
+  width: min(100%, 400px); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 22px; box-shadow: 0 18px 48px rgba(0,0,0,.25);
+}
+.modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+.modal-head h2 { margin:0; font-family:var(--font-display); font-size:18px; }
+.modal-close { border:0; background:transparent; font-size:20px; min-height:30px; padding:0 8px; }
+.modal-fields { display:flex; flex-direction:column; gap:12px; }
+
 .app-hidden { display: none !important; }
-.auth-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 13px;
-  color: var(--muted);
-}
-#auth-user {
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  background: var(--surface-2);
-  color: var(--fg);
-  font-weight: 600;
-}
+.auth-bar { display: flex; align-items: center; gap: 8px; margin-left: 0; }
+#auth-user { color: #ffffff; font-weight: 600; }
+
 
 .status {
   display: flex;
@@ -367,6 +433,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     </div>
     <button type="submit" class="primary login-button" id="login-button">Войти</button>
     <button type="button" class="ghost login-button" id="register-toggle">Регистрация</button>
+    <button type="button" class="guest-button" id="guest-mode">Продолжить без регистрации</button>
     <div class="login-error" id="login-error" role="alert"></div>
   </form>
 </div>
@@ -380,10 +447,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
         <p class="lead">Храните готовые фразы, ссылки и реквизиты. Один клик копирует текст в буфер обмена.</p>
       </div>
     </div>
-    <div class="auth-bar">
-      <span id="auth-user"></span>
-      <button type="button" class="ghost" id="logout">Выйти</button>
-    </div>
+    
     <div class="search">
       <label class="cap" for="search">Поиск</label>
       <input type="search" id="search" placeholder="Название или слово из текста" autocomplete="off">
@@ -412,6 +476,21 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   <div class="status"><span id="count"></span><span id="sync-status">Подключение к облаку…</span></div>
   <section class="grid" id="list" aria-label="Сохранённые тексты"></section>
 </div>
+<div class="modal-backdrop" id="password-modal" hidden>
+  <form class="modal-card" id="password-form">
+    <div class="modal-head">
+      <h2>Сменить пароль</h2>
+      <button type="button" class="modal-close" id="password-close" aria-label="Закрыть">×</button>
+    </div>
+    <div class="modal-fields">
+      <div><label class="cap" for="current-password">Текущий пароль</label><input type="password" id="current-password" autocomplete="current-password" required></div>
+      <div><label class="cap" for="new-password">Новый пароль</label><input type="password" id="new-password" autocomplete="new-password" minlength="6" required></div>
+      <div><label class="cap" for="new-password-2">Повторите новый пароль</label><input type="password" id="new-password-2" autocomplete="new-password" minlength="6" required></div>
+    </div>
+    <div class="login-error" id="password-error" role="alert"></div>
+    <button type="submit" class="primary login-button" id="password-submit">Сохранить пароль</button>
+  </form>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -430,7 +509,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   var localCacheLoadedAt = 0;
   var cloudSaveTimer = null;
   var cloudSaveRunning = false;
-  var AUTO_DELETE_MS = 5 * 60 * 1000;
+  var GUEST_AUTO_DELETE_MS = 5 * 60 * 1000;
+  var USER_AUTO_DELETE_MS = 7 * 24 * 60 * 60 * 1000;
+  var AUTO_DELETE_MS = GUEST_AUTO_DELETE_MS;
+  var registeredUser = false;
 
   var $ = function (id) { return document.getElementById(id); };
   var loginScreen = $("login-screen");
@@ -445,6 +527,18 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   var registerMode = false;
   var authUserEl = $("auth-user");
   var logoutButton = $("logout");
+  var guestModeButton = $("guest-mode");
+  var accountButton = $("account-button");
+  var accountDropdown = $("account-dropdown");
+  var accountLoginButton = $("account-login");
+  var accountModeLabel = $("account-mode-label");
+  var accountAvatar = $("account-avatar");
+  var changePasswordButton = $("change-password");
+  var passwordModal = $("password-modal");
+  var passwordForm = $("password-form");
+  var passwordClose = $("password-close");
+  var passwordError = $("password-error");
+  var passwordSubmit = $("password-submit");
   var authToken = localStorage.getItem("buffer_auth_token") || "";
   var encryptionKey = null;
   var cryptoBundle = null;
@@ -457,9 +551,35 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   function showApp(username) {
+    registeredUser = true;
+    AUTO_DELETE_MS = USER_AUTO_DELETE_MS;
     loginScreen.style.display = "none";
     appEl.classList.remove("app-hidden");
     authUserEl.textContent = username || "";
+    accountAvatar.textContent = (username || "?").charAt(0).toUpperCase();
+    accountModeLabel.textContent = "Зарегистрированный аккаунт";
+    changePasswordButton.hidden = false;
+    accountLoginButton.hidden = true;
+    logoutButton.hidden = false;
+  }
+
+  function showGuest() {
+    registeredUser = false;
+    AUTO_DELETE_MS = GUEST_AUTO_DELETE_MS;
+    encryptionKey = null;
+    cryptoBundle = null;
+    authToken = "";
+    items = [];
+    loginScreen.style.display = "none";
+    appEl.classList.remove("app-hidden");
+    authUserEl.textContent = "Гость";
+    accountAvatar.textContent = "G";
+    accountModeLabel.textContent = "Без регистрации · 5 минут";
+    changePasswordButton.hidden = true;
+    accountLoginButton.hidden = false;
+    logoutButton.hidden = true;
+    setStatus("Гостевой режим · данные не сохраняются");
+    render();
   }
 
   function showLogin() {
@@ -469,7 +589,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     loginError.textContent = "";
     registerMode = false;
     registerToggle.hidden = false;
-    authDescription.textContent = "Войдите, чтобы получить доступ к общему буферу.";
+    authDescription.textContent = "Войдите или зарегистрируйтесь, чтобы сохранять буфер между устройствами.";
     loginButton.textContent = "Войти";
     registerToggle.textContent = "Регистрация";
     loginUserEl.readOnly = false;
@@ -609,6 +729,21 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
       false,
       ["encrypt", "decrypt"]
     );
+  }
+
+  async function wrapExistingKey(masterKey, password) {
+    var rawMaster = new Uint8Array(await crypto.subtle.exportKey("raw", masterKey));
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var wrappingKey = await deriveWrappingKey(password, salt, CRYPTO_KDF_ITERATIONS);
+    var wrapped = new Uint8Array(await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv }, wrappingKey, rawMaster
+    ));
+    return {
+      v: 1, alg: "AES-256-GCM", kdf: "PBKDF2-SHA-256",
+      iterations: CRYPTO_KDF_ITERATIONS, salt: bytesToB64(salt),
+      iv: bytesToB64(iv), wrappedKey: bytesToB64(wrapped)
+    };
   }
 
   async function createCryptoBundle(password) {
@@ -854,6 +989,41 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     }
   });
 
+  guestModeButton.addEventListener("click", function () {
+    showGuest();
+  });
+
+  accountButton.addEventListener("click", function () {
+    var open = !accountDropdown.hidden;
+    accountDropdown.hidden = open;
+    accountButton.setAttribute("aria-expanded", String(!open));
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".account-menu")) {
+      accountDropdown.hidden = true;
+      accountButton.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  accountLoginButton.addEventListener("click", function () {
+    accountDropdown.hidden = true;
+    showLogin();
+  });
+
+  changePasswordButton.addEventListener("click", function () {
+    accountDropdown.hidden = true;
+    passwordForm.reset();
+    passwordError.textContent = "";
+    passwordModal.hidden = false;
+    $("current-password").focus();
+  });
+
+  passwordClose.addEventListener("click", function () { passwordModal.hidden = true; });
+  passwordModal.addEventListener("click", function (e) {
+    if (e.target === passwordModal) passwordModal.hidden = true;
+  });
+
   registerToggle.addEventListener("click", function () {
     registerMode = !registerMode;
     authDescription.textContent = registerMode
@@ -865,6 +1035,45 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   });
 
   logoutButton.addEventListener("click", logout);
+
+  passwordForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    passwordError.textContent = "";
+    var current = $("current-password").value;
+    var next = $("new-password").value;
+    var next2 = $("new-password-2").value;
+    if (next.length < 6) { passwordError.textContent = "Новый пароль должен быть не короче 6 символов"; return; }
+    if (next !== next2) { passwordError.textContent = "Новые пароли не совпадают"; return; }
+    passwordSubmit.disabled = true;
+    try {
+      var newBundle = await wrapExistingKey(encryptionKey, next);
+      var res = await fetch(AUTH_URL + "/auth/password", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "text/plain;charset=UTF-8" }),
+        body: JSON.stringify({
+          currentPassword: current,
+          newPassword: next,
+          crypto: {
+            v: newBundle.v, alg: newBundle.alg, kdf: newBundle.kdf,
+            iterations: newBundle.iterations, salt: newBundle.salt,
+            iv: newBundle.iv, wrappedKey: newBundle.wrappedKey
+          }
+        })
+      });
+      var data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) throw new Error(data.error || "Не удалось сменить пароль");
+      cryptoBundle = newBundle;
+      await saveSessionEncryptionKey();
+      passwordForm.reset();
+      passwordModal.hidden = true;
+      toast("Пароль изменён");
+    } catch (e) {
+      passwordError.textContent = e.message || "Не удалось сменить пароль";
+    } finally {
+      passwordSubmit.disabled = false;
+    }
+  });
 
 
   var listEl = $("list"), form = $("composer"), titleEl = $("title"), bodyEl = $("body");
@@ -882,6 +1091,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   function words(t) { var s = t.trim(); return s ? s.split(/\s+/).length : 0; }
 
   async function loadLocal() {
+    if (!registeredUser || !encryptionKey) return null;
     try {
       var raw = localStorage.getItem(KEY);
       if (raw === null) return null;
@@ -901,6 +1111,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   async function saveLocal() {
+    if (!registeredUser || !encryptionKey) return;
     try {
       var envelope = await encryptItems(items);
       localStorage.setItem(KEY, JSON.stringify(envelope));
@@ -924,8 +1135,9 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     var now = Date.now();
     var changed = false;
     itemsList.forEach(function (it) {
-      if (!it.expiresAt) {
-        it.expiresAt = now + AUTO_DELETE_MS;
+      var target = now + AUTO_DELETE_MS;
+      if (!it.expiresAt || (registeredUser && it.expiresAt < target)) {
+        it.expiresAt = target;
         changed = true;
       }
     });
@@ -1161,6 +1373,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   async function saveGithub() {
+    if (!registeredUser || !authToken || !encryptionKey) return;
     if (!WORKER_URL || WORKER_URL.indexOf("REPLACE_WITH_YOUR_WORKER") !== -1) {
       throw new Error("Адрес Cloudflare Worker ещё не указан");
     }
@@ -1184,6 +1397,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   async function queueChange(op, item) {
+    if (!registeredUser) {
+      setStatus("Гостевой режим · удалится через 5 минут");
+      return;
+    }
     pending = true;
     setStatus("Изменения будут сохранены…");
     clearTimeout(cloudSaveTimer);
@@ -1208,6 +1425,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   }
 
   async function loadGithub(force) {
+    if (!registeredUser || !authToken || !encryptionKey) return;
     if (pending && !force) return;
     // Cloudflare KV is eventually consistent: immediately after a successful
     // write, a list() request can briefly return the previous snapshot.
@@ -1335,11 +1553,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
           showUnlock(auth.username || "");
         }
       } else {
-        showLogin();
+        showGuest();
       }
     } catch (e) {
-      showLogin();
-      loginError.textContent = "Не удалось проверить авторизацию";
+      showGuest();
     }
   })();
   setInterval(function () {
