@@ -408,6 +408,16 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   z-index: 20;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 720px) {
+  header { gap: 6px; }
+  .brand-text h1 { font-size: 14px; }
+  .nav-left { order: 3; width: 100%; }
+  .nav-spacer { display: none; }
+  .search { flex: 1 1 auto; width: auto; min-width: 0; order: 2; }
+  .account-menu { order: 2; }
+  .account-button { padding-inline: 6px; }
+  #auth-user { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
@@ -442,18 +452,31 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   <header>
     <div class="brand">
       <span class="logo-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="7" y="3" width="10" height="4" rx="1" fill="white"/><rect x="4" y="5" width="16" height="16" rx="2" stroke="white" stroke-width="1.8"/><path d="M8 13.5l2.4 2.4L16 10.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-      <div class="brand-text">
-        <h1>Jira Helper</h1>
-        <p class="lead">Храните готовые фразы, ссылки и реквизиты. Один клик копирует текст в буфер обмена.</p>
-      </div>
+      <div class="brand-text"><h1>Helper <span style="font-weight:500;color:#9fadbb">by bushueff</span></h1></div>
     </div>
-    
+    <nav class="nav-left" aria-label="Основная навигация">
+      <button type="button" class="nav-button active">Clipboard</button>
+      <button type="button" class="nav-button" disabled title="Скоро">+</button>
+    </nav>
+    <div class="nav-spacer"></div>
     <div class="search">
       <label class="cap" for="search">Поиск</label>
-      <input type="search" id="search" placeholder="Название или слово из текста" autocomplete="off">
+      <input type="search" id="search" placeholder="Поиск..." autocomplete="off">
+    </div>
+    <div class="account-menu">
+      <button type="button" class="account-button" id="account-button" aria-expanded="false" aria-haspopup="true">
+        <span class="account-avatar" id="account-avatar">G</span>
+        <span id="auth-user">Гость</span>
+        <span class="account-chevron">⌄</span>
+      </button>
+      <div class="account-dropdown" id="account-dropdown" hidden>
+        <div class="menu-label" id="account-mode-label">Гостевой режим · 5 минут</div>
+        <button type="button" id="change-password" hidden>Сменить пароль</button>
+        <button type="button" id="account-login">Войти / зарегистрироваться</button>
+        <button type="button" class="danger" id="logout" hidden>Выйти</button>
+      </div>
     </div>
   </header>
-
   <form class="composer" id="composer" autocomplete="off">
     <h2 id="composer-title">Новый текст</h2>
     <div class="fields">
