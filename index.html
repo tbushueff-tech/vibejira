@@ -510,14 +510,53 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 720px) {
-  header { gap: 6px; }
-  .brand-text h1 { font-size: 14px; }
-  .nav-left { order: 3; width: 100%; }
+  /* Two clean header rows: brand/account, then navigation/search. */
+  header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "brand account" "nav search";
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 8px;
+    padding: 10px max(16px, env(safe-area-inset-right, 0px))
+             10px max(16px, env(safe-area-inset-left, 0px));
+    min-height: 0;
+    max-width: 100vw;
+  }
+  header .brand { grid-area: brand; min-width: 0; overflow: hidden; }
+  header .header-brand { gap: 7px; height: 38px; }
+  header .header-brand-mark { width: 42px; height: 36px; flex-basis: 42px; }
+  header .header-brand-mark img { width: 141px; left: -16px; top: -7px; }
+  header .header-brand-name { font-size: 22px; }
+  header .header-brand-by { font-size: 11px; margin-top: 2px; }
   .nav-spacer { display: none; }
-  .search { flex: 1 1 auto; width: auto; min-width: 0; order: 2; }
-  .account-menu { order: 2; }
-  .account-button { padding-inline: 6px; }
+  header .nav-left { grid-area: nav; width: auto; min-width: 0; }
+  header .nav-button { min-height: 36px; padding-inline: 12px; }
+  header .account-menu { grid-area: account; justify-self: end; min-width: 0; }
+  header .account-button { padding: 0 4px; gap: 4px; }
+  header .account-avatar { width: 30px; height: 30px; }
   #auth-user { display: none; }
+  header .search { grid-area: search; justify-self: end; width: min(46vw, 200px); min-width: 0; flex: none; }
+  header .search input[type="search"] { width: 100%; min-height: 36px; font-size: 14px; }
+  .wrap { gap: 14px; }
+  .composer { padding: 16px; gap: 12px; }
+  .composer textarea { min-height: 110px; }
+  .status { align-items: flex-start; gap: 6px 12px; }
+  .status span { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .card { padding: 14px; }
+  .actions { gap: 4px; }
+  .login-card { padding: 24px 20px 20px; }
+  .guest-disclaimer-actions { flex-wrap: wrap; }
+}
+@media (max-width: 360px) {
+  header { column-gap: 5px; padding-inline: 12px; }
+  header .header-brand-mark { width: 36px; flex-basis: 36px; }
+  header .header-brand-mark img { width: 129px; left: -15px; top: -6px; }
+  header .header-brand-name { font-size: 20px; }
+  header .header-brand-by { font-size: 10px; }
+  header .search { width: 155px; }
+  header .nav-button { padding-inline: 9px; font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
