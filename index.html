@@ -78,18 +78,8 @@ body {
 }
 .wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 
-.logo-mark {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(255,255,255,.16);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
-}
-.logo-mark svg { width: 20px; height: 20px; display: block; }
+.helper-logo { display:block; width: 152px; height:auto; }
+.login-card .helper-logo { width: 190px; margin: 0 auto 18px; }
 
 header {
   position: sticky;
@@ -108,6 +98,8 @@ header {
   box-shadow: 0 1px 4px rgba(9,30,66,.18);
 }
 .brand { min-width: 0; display: flex; align-items: center; gap: 10px; flex: none; }
+.brand-logo { display:flex; align-items:center; background:#fff; border-radius:7px; padding:4px 9px; height:38px; box-sizing:border-box; }
+.brand-logo .helper-logo { width:128px; }
 .brand-text { min-width: 0; }
 h1 {
   font-family: var(--font-display);
@@ -275,8 +267,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
   padding: 28px 28px 24px;
   box-shadow: 0 1px 1px rgba(9,30,66,.12), 0 0 1px 1px rgba(9,30,66,.07);
 }
-.login-card .logo-mark { width: 36px; height: 36px; border-radius: 9px; margin: 0 auto 14px; }
-.login-card .logo-mark svg { width: 20px; height: 20px; }
+
 .login-card h1 {
   margin: 0 0 6px;
   font-size: 20px;
@@ -460,8 +451,18 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 
 <div id="login-screen">
   <form class="login-card" id="login-form" autocomplete="on">
-    <span class="logo-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="7" y="3" width="10" height="4" rx="1" fill="white"/><rect x="4" y="5" width="16" height="16" rx="2" stroke="white" stroke-width="1.8"/><path d="M8 13.5l2.4 2.4L16 10.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    <h1>Jira Helper</h1>
+    <svg class="helper-logo" viewBox="0 0 420 145" role="img" aria-label="Helper by bushueff">
+  <defs>
+    <linearGradient id="helperBlueA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20a4ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
+    <linearGradient id="helperBlueB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#31b3ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
+  </defs>
+  <path d="M20 76 76 18q10-10 25-10h46q12 0 5 10l-64 70q-8 9-20 9H27q-12 0-7-21Z" fill="url(#helperBlueA)"/>
+  <path d="M72 118 128 60q10-10 25-10h48q11 0 4 10l-64 70q-8 9-20 9H79q-13 0-7-21Z" fill="url(#helperBlueB)"/>
+  <path d="M72 88 105 52q10-11 27-11h45q12 0 5 10l-26 29q-8 9-20 9h-56q-9 0-8-1Z" fill="#0649c7" opacity=".9"/>
+  <text x="214" y="72" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800" fill="#07143b" letter-spacing="-2">Helper</text>
+  <text x="216" y="111" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="400" fill="#64748b">by bushueff</text>
+</svg>
+    <h1>Helper by bushueff</h1>
     <p id="auth-description">Войдите, чтобы получить доступ к общему буферу.</p>
     <div class="login-fields">
       <div>
@@ -500,13 +501,17 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
 <div class="wrap app-hidden" id="app">
   <header>
     <div class="brand">
-      <span class="logo-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none">
-        <rect x="7" y="5" width="18" height="23" rx="4" fill="white"/>
-        <rect x="11" y="3" width="10" height="5" rx="2.5" fill="white"/>
-        <path d="M11 14h10M11 19h6" stroke="#0052cc" stroke-width="2" stroke-linecap="round"/>
-        <path d="m20 21 1.8 1.8L25 19.5" stroke="#0052cc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg></span>
-      <div class="brand-text"><h1>Helper <span style="font-weight:500;color:rgba(255,255,255,.72)">by bushueff</span></h1></div>
+      <div class="brand-logo"><svg class="helper-logo" viewBox="0 0 420 145" role="img" aria-label="Helper by bushueff">
+  <defs>
+    <linearGradient id="helperBlueA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20a4ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
+    <linearGradient id="helperBlueB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#31b3ff"/><stop offset="1" stop-color="#0052cc"/></linearGradient>
+  </defs>
+  <path d="M20 76 76 18q10-10 25-10h46q12 0 5 10l-64 70q-8 9-20 9H27q-12 0-7-21Z" fill="url(#helperBlueA)"/>
+  <path d="M72 118 128 60q10-10 25-10h48q11 0 4 10l-64 70q-8 9-20 9H79q-13 0-7-21Z" fill="url(#helperBlueB)"/>
+  <path d="M72 88 105 52q10-11 27-11h45q12 0 5 10l-26 29q-8 9-20 9h-56q-9 0-8-1Z" fill="#0649c7" opacity=".9"/>
+  <text x="214" y="72" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800" fill="#07143b" letter-spacing="-2">Helper</text>
+  <text x="216" y="111" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="400" fill="#64748b">by bushueff</text>
+</svg></div>
     </div>
     <nav class="nav-left" aria-label="Основная навигация">
       <button type="button" class="nav-button active">Clipboard</button>
