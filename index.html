@@ -1392,6 +1392,20 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     var open = !accountDropdown.hidden;
     accountDropdown.hidden = open;
     accountButton.setAttribute("aria-expanded", String(!open));
+    // When the user opens the account menu, refresh profile changes made
+    // on another device without polling KV on every clipboard refresh.
+    if (!open && registeredUser) {
+      checkAuth().then(function (session) {
+        if (session && session.authenticated &&
+            String(session.username).toLowerCase() === accountLoginName.toLowerCase() &&
+            Object.prototype.hasOwnProperty.call(session, "profile")) {
+          accountProfile = session.profile || null;
+          applyProfile();
+        }
+      }).catch(function (e) {
+        console.warn("Profile refresh unavailable:", e);
+      });
+    }
   });
 
   document.addEventListener("click", function (e) {
@@ -1635,6 +1649,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     if (it.expiresAt) {
       var left = Math.max(0, Math.ceil((it.expiresAt - Date.now()) / 1000));
       var em = el("span", "expiry", "⏱ " + formatExpiry(left));
+      em.dataset.expiresAt = String(it.expiresAt);
       head.appendChild(em);
     }
     card.appendChild(head);
@@ -1692,6 +1707,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     var isDeleteArmed = (deleteArmedUntil[it.id] || 0) > Date.now();
     var del = el("button", "ghost danger", isDeleteArmed ? "Удалить насовсем?" : "Удалить");
     del.type = "button";
+    del.dataset.itemId = it.id;
     if (isDeleteArmed) del.classList.add("armed");
     del.addEventListener("click", function () {
       if ((deleteArmedUntil[it.id] || 0) <= Date.now()) {
@@ -1978,9 +1994,21 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); bac
     if (changed) {
       render();
       queueChange("delete-expired", null);
-    } else {
-      render();
+      return;
     }
+    // Update counters without replacing the cards or interrupting button presses.
+    listEl.querySelectorAll(".expiry[data-expires-at]").forEach(function (node) {
+      var left = Math.max(0, Math.ceil((Number(node.dataset.expiresAt) - Date.now()) / 1000));
+      node.textContent = "⏱ " + formatExpiry(left);
+    });
+    listEl.querySelectorAll("button.armed").forEach(function (button) {
+      var itemId = button.dataset.itemId;
+      if ((deleteArmedUntil[itemId] || 0) <= Date.now()) {
+        delete deleteArmedUntil[itemId];
+        button.classList.remove("armed");
+        button.textContent = "Удалить";
+      }
+    });
   }, 1000);
 
   // KV is eventually consistent and caches reads for at least 30 seconds.
