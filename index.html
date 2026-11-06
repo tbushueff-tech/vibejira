@@ -358,6 +358,8 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   var pending = false;
   var lastCloudSaveAt = 0;
   var localCacheLoadedAt = 0;
+  var cloudSaveTimer = null;
+  var cloudSaveRunning = false;
   var AUTO_DELETE_MS = 5 * 60 * 1000;
 
   var $ = function (id) { return document.getElementById(id); };
@@ -1037,20 +1039,26 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
 
   async function queueChange(op, item) {
     pending = true;
-    setStatus("Сохранение в облако…");
+    setStatus("Изменения будут сохранены…");
+    clearTimeout(cloudSaveTimer);
 
-    try {
-      await saveGithub();
-      saveLocal();
-      setStatus("Синхронизировано через GitHub");
-      toast("Сохранено");
-    } catch (e) {
-      console.error(e);
-      setStatus("Ошибка синхронизации");
-      toast("Не удалось сохранить: " + e.message);
-    } finally {
-      pending = false;
-    }
+    cloudSaveTimer = setTimeout(async function () {
+      if (cloudSaveRunning) return;
+      cloudSaveRunning = true;
+      try {
+        await saveGithub();
+        await saveLocal();
+        setStatus("Синхронизировано через облако");
+        toast("Сохранено");
+      } catch (e) {
+        console.error(e);
+        setStatus("Ошибка синхронизации");
+        toast("Не удалось сохранить: " + e.message);
+      } finally {
+        cloudSaveRunning = false;
+        pending = false;
+      }
+    }, 1200);
   }
 
   async function loadGithub(force) {
@@ -1188,7 +1196,10 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     }
   }, 1000);
 
-  setInterval(function () { loadGithub(false); }, 5000);
+  // KV is eventually consistent and caches reads for at least 30 seconds.
+  // Polling every 30 seconds is enough for cross-browser synchronization and
+  // avoids burning through the KV free-tier list/read limits.
+  setInterval(function () { loadGithub(false); }, 30000);
 })();
 </script>
 
