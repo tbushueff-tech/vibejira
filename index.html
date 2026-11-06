@@ -407,9 +407,8 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   }
 
   function showUnlock(username) {
-    // Сессия остаётся активной. После обновления страницы нам нужен только
-    // пароль для расшифровки ключа E2EE; повторно авторизовывать пользователя
-    // и "выбрасывать" его из приложения не нужно.
+    // Fallback only for sessions created before automatic session-key storage.
+    // Normally a page refresh restores the encryption key automatically.
     appEl.classList.remove("app-hidden");
     loginScreen.style.display = "flex";
     loginPasswordEl.value = "";
@@ -418,7 +417,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     registerToggle.hidden = true;
     loginUserEl.value = username || "";
     loginUserEl.readOnly = true;
-    authDescription.textContent = "Сессия активна. Введите пароль, чтобы разблокировать зашифрованный буфер.";
+    authDescription.textContent = "Сессия активна. Введите пароль один раз, чтобы разблокировать буфер.";
     loginButton.textContent = "Разблокировать";
     loginUserEl.focus();
   }
@@ -444,6 +443,68 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
   function b64ToBytes(value) {
     var binary = atob(value);
     return Uint8Array.from(binary, function (c) { return c.charCodeAt(0); });
+  }
+
+  async function deriveSessionKey(token) {
+    var digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(token)
+    );
+    return crypto.subtle.importKey(
+      "raw",
+      digest,
+      { name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  async function saveSessionEncryptionKey() {
+    if (!authToken || !encryptionKey) return;
+    try {
+      var raw = new Uint8Array(await crypto.subtle.exportKey("raw", encryptionKey));
+      var iv = crypto.getRandomValues(new Uint8Array(12));
+      var key = await deriveSessionKey(authToken);
+      var encrypted = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        raw
+      );
+      localStorage.setItem("buffer_session_key", JSON.stringify({
+        v: 1,
+        iv: bytesToB64(iv),
+        ciphertext: bytesToB64(new Uint8Array(encrypted))
+      }));
+    } catch (e) {
+      console.error("Session key save error:", e);
+    }
+  }
+
+  async function restoreSessionEncryptionKey() {
+    if (!authToken) return false;
+    try {
+      var rawEnvelope = localStorage.getItem("buffer_session_key");
+      if (!rawEnvelope) return false;
+      var envelope = JSON.parse(rawEnvelope);
+      if (!envelope || envelope.v !== 1) return false;
+      var key = await deriveSessionKey(authToken);
+      var raw = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: b64ToBytes(envelope.iv) },
+        key,
+        b64ToBytes(envelope.ciphertext)
+      );
+      encryptionKey = await crypto.subtle.importKey(
+        "raw",
+        raw,
+        { name: "AES-GCM" },
+        false,
+        ["encrypt", "decrypt"]
+      );
+      return true;
+    } catch (e) {
+      localStorage.removeItem("buffer_session_key");
+      return false;
+    }
   }
 
   async function deriveWrappingKey(password, salt, iterations) {
@@ -645,6 +706,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
       await saveCryptoBundle(created);
     }
 
+    await saveSessionEncryptionKey();
     return data;
   }
 
@@ -660,6 +722,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     cryptoBundle = null;
     items = [];
     localStorage.removeItem("buffer_auth_token");
+    localStorage.removeItem("buffer_session_key");
     localStorage.removeItem(KEY);
     showLogin();
   }
@@ -688,6 +751,7 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
         encryptionKey = newCrypto.key;
         cryptoBundle = newCrypto;
         data = await register(username, password, newCrypto);
+        await saveSessionEncryptionKey();
       } else {
         data = await login(username, password);
       }
@@ -1174,10 +1238,20 @@ button.ghost.danger:hover, button.ghost.danger.armed { color: var(--danger); }
     try {
       var auth = await checkAuth();
       if (auth && auth.authenticated) {
-        // Сессия сохранена, но ключ шифрования намеренно не хранится
-        // в localStorage. Пользователь должен снова ввести пароль,
-        // чтобы разблокировать буфер.
-        showUnlock(auth.username || "");
+        var restored = await restoreSessionEncryptionKey();
+        if (restored) {
+          showApp(auth.username || "");
+          var cachedItems = await loadLocal();
+          if (cachedItems) {
+            items = cachedItems;
+            render();
+          }
+          updateLiveCount();
+          render();
+          await loadGithub(false);
+        } else {
+          showUnlock(auth.username || "");
+        }
       } else {
         showLogin();
       }
