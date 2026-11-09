@@ -390,11 +390,6 @@ function clearSessionCookie() {
   return "buffer_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=None; Partitioned";
 }
 
-function checkKey(request, env) {
-  const key = request.headers.get("X-Buffer-Key");
-  return !!env.BUFFER_KEY && key === env.BUFFER_KEY;
-}
-
 export default {
   async scheduled() {
     // No KV scan is needed anymore. Buffer keys expire automatically in KV.
@@ -664,9 +659,10 @@ export default {
       return json({ ok: false, error: "Unauthorized" }, 401, origin);
     }
 
-    if (!checkKey(request, env)) {
-      return json({ ok: false, error: "Unauthorized" }, 401, origin);
-    }
+    // Signed bearer session has already been verified above.
+    // The former X-Buffer-Key comparison rejected legitimate users whenever
+    // Cloudflare's BUFFER_KEY secret was absent or differed from the browser
+    // constant, which is public and provides no additional authentication.
 
     try {
       const username = session.username;
