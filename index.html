@@ -787,111 +787,24 @@ header .brand, header .search, header .account-menu { min-width: 0; }
 <script>
 (function () {
   var KEY = "bufer-tekstov-v1";
-  // Both addresses reach the same Cloudflare Worker/KV. HostiMan is a
-  // transport fallback, not a second database.
-  var PRIMARY_API_URL = "https://vibejira.t-bushueff.workers.dev";
-  var BACKUP_API_URL = "https://tbhelper.h1n.ru/api.php";
-  var activeApi = null;
-  var lastApiProbeAt = 0;
-  var apiSelectionInFlight = null;
-  var API_PROBE_INTERVAL_MS = 60000;
-
-  function apiUrl(provider, route) {
-    return provider === "backup"
-      ? BACKUP_API_URL + "?route=" + encodeURIComponent(route)
-      : PRIMARY_API_URL + route;
-  }
-
-  function apiName() {
-    return activeApi === "backup" ? "HostiMan" : "Cloudflare";
-  }
-
-  async function probeApi(provider) {
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, provider === "primary" ? 4500 : 6500);
-    try {
-      // An unauthenticated /auth/me always returns HTTP 401. That is a
-      // successful reachability check and does not read the user KV record.
-      var response = await fetch(apiUrl(provider, "/auth/me"), {
-        method: "GET", cache: "no-store", credentials: "omit",
-        signal: controller.signal
-      });
-      return response.status === 401 || response.ok;
-    } catch (e) {
-      return false;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  async function selectApi(force) {
-    if (!force && activeApi && Date.now() - lastApiProbeAt < API_PROBE_INTERVAL_MS) {
-      return activeApi;
-    }
-    if (apiSelectionInFlight) return apiSelectionInFlight;
-    apiSelectionInFlight = (async function () {
-      // Prefer the current working provider, so a blocked Cloudflare hostname
-      // is not retried for every request while the HostiMan relay is working.
-      var first = activeApi || "primary";
-      var second = first === "primary" ? "backup" : "primary";
-      if (await probeApi(first)) {
-        activeApi = first;
-      } else if (await probeApi(second)) {
-        activeApi = second;
-      } else {
-        activeApi = null;
-        throw new Error("Не удаётся подключиться ни к Cloudflare, ни к HostiMan");
-      }
-      lastApiProbeAt = Date.now();
-      return activeApi;
-    })();
-    try {
-      return await apiSelectionInFlight;
-    } finally {
-      apiSelectionInFlight = null;
-    }
-  }
+  // Single authoritative Cloudflare API. No anonymous /auth/me probes:
+  // HTTP 401 without a bearer token is expected, not an outage.
+  var API_URL = "https://vibejira.t-bushueff.workers.dev";
 
   async function apiFetch(route, options) {
-    options = options || {};
-    // Authentication is done with the Bearer token. Cross-origin cookies are
-    // unnecessary and would require a different CORS policy on HostiMan.
-    // Explicitly disable cookie credentials for both API providers.
-    options = Object.assign({}, options, { credentials: "omit" });
-    var method = (options.method || "GET").toUpperCase();
-    var provider = await selectApi(false);
-    var fetchOptions = Object.assign({ cache: "no-store" }, options);
-    // Timeouts apply to real API requests too, not only probes. The browser's
-    // network timeout can otherwise keep the app stuck for several minutes.
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 15000);
-    fetchOptions.signal = controller.signal;
     try {
-      return await fetch(apiUrl(provider, route), fetchOptions);
+      var fetchOptions = Object.assign({ cache: "no-store" }, options || {}, {
+        credentials: "omit",
+        signal: controller.signal
+      });
+      return await fetch(API_URL + route, fetchOptions);
     } catch (e) {
-      // No blind POST retry: the first server may have accepted the write
-      // before the connection broke. A safe GET probe can still select the
-      // other provider for the user's next explicit action.
-      activeApi = null;
-      lastApiProbeAt = 0;
-      var other = provider === "primary" ? "backup" : "primary";
-      if (!(await probeApi(other))) {
-        throw new Error("Нет связи с Cloudflare и HostiMan");
+      if (controller.signal.aborted) {
+        throw new Error("Cloudflare не ответил за 15 секунд");
       }
-      activeApi = other;
-      lastApiProbeAt = Date.now();
-      if (method !== "GET") {
-        throw new Error("Соединение с " + apiName() + " доступно. Предыдущая операция могла выполниться — проверьте результат перед повтором.");
-      }
-      var fallbackController = new AbortController();
-      var fallbackTimer = setTimeout(function () { fallbackController.abort(); }, 15000);
-      try {
-        return await fetch(apiUrl(other, route), Object.assign({}, options, {
-          cache: "no-store", signal: fallbackController.signal
-        }));
-      } finally {
-        clearTimeout(fallbackTimer);
-      }
+      throw new Error("Нет соединения с Cloudflare: " + (e && e.message ? e.message : String(e)));
     } finally {
       clearTimeout(timer);
     }
@@ -2074,8 +1987,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   // Contents: Read and write только для репозитория tbushueff-tech/vibejira.
   // Не используйте основной аккаунтный токен.
   // GitHub token хранится только в Cloudflare Worker.
-  // The routing between Cloudflare and HostiMan is handled by apiFetch().
-  var BUFFER_KEY = "vibejira-buffer";
+  // Data is synchronized via the Cloudflare Worker with bearer authorization.
 
   function utf8b64(obj) {
     var bytes = new TextEncoder().encode(JSON.stringify(obj));
@@ -2095,7 +2007,6 @@ header .brand, header .search, header .account-menu { min-width: 0; }
       credentials: "omit",
       headers: authHeaders({
         "Content-Type": "application/json",
-        "X-Buffer-Key": BUFFER_KEY
       }),
       body: JSON.stringify(envelope)
     });
@@ -2157,7 +2068,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     try {
       var res = await bounded(apiFetch("/", {
         credentials: "omit",
-        headers: authHeaders({ "X-Buffer-Key": BUFFER_KEY }),
+        headers: authHeaders(),
         cache: "no-store"
       }), 25000, "Подключение к облаку");
       if (!res.ok) throw new Error("API HTTP " + res.status);
