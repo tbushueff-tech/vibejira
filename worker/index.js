@@ -716,6 +716,16 @@ export default {
         } catch (e) {
           return json({ ok: false, error: String(e.message || e) }, 400, origin);
         }
+        // Emergency protection: never let a partial client snapshot replace
+        // a larger encrypted cloud buffer. Existing KV data stays untouched.
+        const existing = await getEncryptedUserBuffer(env, username);
+        if (existing && Array.isArray(existing.items) &&
+            existing.items.length > data.items.length) {
+          return json({
+            ok: false,
+            error: "Защита данных: неполная загрузка облака. Запись заблокирована."
+          }, 409, origin);
+        }
         await saveEncryptedUserBuffer(env, username, data);
         return json({ ok: true }, 200, origin);
       }
