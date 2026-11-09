@@ -792,21 +792,27 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   var API_URL = "https://vibejira.t-bushueff.workers.dev";
 
   async function apiFetch(route, options) {
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, 15000);
+    options = options || {};
+    // Cloud reads supply an AbortSignal covering BOTH headers and the body.
+    var externalSignal = options.signal || null;
+    var controller = externalSignal ? null : new AbortController();
+    var timer = controller
+      ? setTimeout(function () { controller.abort(); }, 30000)
+      : null;
     try {
-      var fetchOptions = Object.assign({ cache: "no-store" }, options || {}, {
+      var fetchOptions = Object.assign({ cache: "no-store" }, options, {
         credentials: "omit",
-        signal: controller.signal
+        signal: externalSignal || controller.signal
       });
       return await fetch(API_URL + route, fetchOptions);
     } catch (e) {
-      if (controller.signal.aborted) {
-        throw new Error("Cloudflare не ответил за 15 секунд");
+      if ((controller && controller.signal.aborted) ||
+          (externalSignal && externalSignal.aborted)) {
+        throw new Error("Превышено время ожидания ответа Cloudflare");
       }
       throw new Error("Нет соединения с Cloudflare: " + (e && e.message ? e.message : String(e)));
     } finally {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -2046,9 +2052,9 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     }, 1200);
   }
 
-  // Never write to remote KV as a side effect of merely opening the page.
-  // The user's local encrypted data must survive timeouts and damaged cloud responses.
+  // Reads never write to KV, expire keys, or remove the encrypted local cache.
   var cloudReadInFlight = false;
+  var lastCloudFailureAt = 0;
   function bounded(promise, ms, label) {
     var timer;
     return Promise.race([
@@ -2059,48 +2065,100 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     ]).finally(function () { clearTimeout(timer); });
   }
 
+  // The previous 20s res.json() timeout left a live response body downloading.
+  // Read through one abortable stream, including slow proxies and large buffers.
+  async function readCloudJson(response) {
+    if (!response.body || !response.body.getReader) return response.json();
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var chunks = [];
+    var total = 0;
+    var lastProgress = 0;
+    var MAX_CLOUD_BYTES = 32 * 1024 * 1024;
+    try {
+      while (true) {
+        var part = await reader.read();
+        if (part.done) break;
+        if (!part.value) continue;
+        total += part.value.byteLength;
+        if (total > MAX_CLOUD_BYTES) {
+          throw new Error("Ответ облака превышает 32 МБ — данные не изменены");
+        }
+        chunks.push(decoder.decode(part.value, { stream: true }));
+        if (Date.now() - lastProgress > 800) {
+          lastProgress = Date.now();
+          setStatus("Загрузка из облака: " + Math.round(total / 1024) + " КБ получено…");
+        }
+      }
+      chunks.push(decoder.decode());
+      setStatus("Обработка ответа облака…");
+      return JSON.parse(chunks.join(""));
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   async function loadGithub(force) {
     if (!registeredUser || !authToken || !encryptionKey) return;
     if ((pending && !force) || cloudReadInFlight) return;
     if (!force && lastCloudSaveAt && Date.now() - lastCloudSaveAt < 15000) return;
+    // A stalled corporate proxy must not start a new long download every 30s.
+    if (!force && lastCloudFailureAt && Date.now() - lastCloudFailureAt < 120000) return;
     cloudReadInFlight = true;
-    setStatus("Загрузка записей из облака…");
+    var controller = new AbortController();
+    // Account data size and network conditions can differ substantially.
+    var timer = setTimeout(function () { controller.abort(); }, 120000);
+    setStatus("Подключение к облаку…");
     try {
-      var res = await bounded(apiFetch("/", {
+      var res = await apiFetch("/", {
         credentials: "omit",
         headers: authHeaders(),
-        cache: "no-store"
-      }), 25000, "Подключение к облаку");
+        cache: "no-store",
+        signal: controller.signal
+      });
       if (!res.ok) throw new Error("API HTTP " + res.status);
-      var data = await bounded(res.json(), 20000, "Чтение ответа облака");
+      setStatus("Чтение ответа облака…");
+      var data = await readCloudJson(res);
+      clearTimeout(timer);
       var remoteItems = await bounded(
         Array.isArray(data) ? Promise.resolve(data) : decryptItems(data),
-        20000,
+        90000,
         "Расшифровка облачных записей"
       );
       if (!Array.isArray(remoteItems)) throw new Error("Некорректный ответ облака");
-      // Do not overwrite a recently loaded local cache with an empty remote
-      // snapshot. Never save that cache to KV automatically on read.
+      // A stale/empty cloud snapshot must not replace a recent local cache.
       if (!(remoteItems.length === 0 && items.length > 0 &&
           localCacheLoadedAt && Date.now() - localCacheLoadedAt < 60000)) {
         items = remoteItems;
-        await bounded(saveLocal(), 20000, "Сохранение локального кэша");
+        render();
+        // Local encryption/cache can take time; it is not a cloud read error.
+        try {
+          await bounded(saveLocal(), 90000, "Локальный кэш");
+        } catch (cacheError) {
+          console.warn("Encrypted local cache update delayed:", cacheError);
+        }
       }
-      // Expiry cleanup is local only; writes happen on explicit user changes.
       purgeExpired(true);
       githubReady = true;
+      lastCloudFailureAt = 0;
       setStatus("Синхронизировано через облако");
       render();
     } catch (e) {
       githubReady = false;
-      setStatus("Ошибка облака: " + (e && e.message ? e.message : String(e)));
+      lastCloudFailureAt = Date.now();
+      if (controller.signal.aborted) {
+        setStatus("Облако отвечает слишком медленно (более 120 секунд)");
+      } else {
+        setStatus("Ошибка облака: " + (e && e.message ? e.message : String(e)));
+      }
       console.error("Cloud load failed:", e);
     } finally {
+      clearTimeout(timer);
       cloudReadInFlight = false;
     }
   }
 
-    form.addEventListener("submit", function (e) {
+  form.addEventListener("submit", function (e) {
     e.preventDefault();
     var text = bodyEl.value.replace(/\s+$/, "");
     var title = titleEl.value.trim();
