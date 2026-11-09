@@ -2065,36 +2065,56 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     ]).finally(function () { clearTimeout(timer); });
   }
 
-  // The previous 20s res.json() timeout left a live response body downloading.
-  // Read through one abortable stream, including slow proxies and large buffers.
+  // Some corporate proxies deliver the entire JSON body but never signal
+  // end-of-stream. Accept a syntactically complete JSON object immediately.
+  // This is read-only and never changes cloud or local data on an incomplete body.
   async function readCloudJson(response) {
     if (!response.body || !response.body.getReader) return response.json();
     var reader = response.body.getReader();
     var decoder = new TextDecoder();
-    var chunks = [];
+    var bodyText = "";
     var total = 0;
+    var fullyRead = false;
     var lastProgress = 0;
     var MAX_CLOUD_BYTES = 32 * 1024 * 1024;
     try {
       while (true) {
         var part = await reader.read();
-        if (part.done) break;
-        if (!part.value) continue;
+        if (part.done) {
+          fullyRead = true;
+          bodyText += decoder.decode();
+          break;
+        }
+        if (!part.value || !part.value.byteLength) continue;
         total += part.value.byteLength;
         if (total > MAX_CLOUD_BYTES) {
           throw new Error("Ответ облака превышает 32 МБ — данные не изменены");
         }
-        chunks.push(decoder.decode(part.value, { stream: true }));
+        bodyText += decoder.decode(part.value, { stream: true });
         if (Date.now() - lastProgress > 800) {
           lastProgress = Date.now();
           setStatus("Загрузка из облака: " + Math.round(total / 1024) + " КБ получено…");
         }
+        // JSON is always a single object/array. If the complete document has
+        // arrived, do not wait forever for the remote proxy to close the stream.
+        if (/[}\]]\s*$/.test(bodyText)) {
+          try {
+            var completeJson = JSON.parse(bodyText);
+            setStatus("Ответ облака получен (" + Math.round(total / 1024) + " КБ), расшифровка…");
+            return completeJson;
+          } catch (incomplete) {
+            // Not complete yet: continue reading. Never use partial records.
+          }
+        }
       }
-      chunks.push(decoder.decode());
       setStatus("Обработка ответа облака…");
-      return JSON.parse(chunks.join(""));
+      return JSON.parse(bodyText);
     } finally {
-      reader.releaseLock();
+      if (!fullyRead) {
+        // Do not await cancel: a broken proxy can stall cancellation as well.
+        try { reader.cancel("JSON body complete or read aborted").catch(function () {}); } catch (e) {}
+      }
+      try { reader.releaseLock(); } catch (e) {}
     }
   }
 
