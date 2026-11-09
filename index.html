@@ -2006,6 +2006,9 @@ header .brand, header .search, header .account-menu { min-width: 0; }
 
   async function saveGithub() {
     if (!registeredUser || !authToken || !encryptionKey) return;
+    if (!githubReady) {
+      throw new Error("Сохранение в облако заблокировано: сначала требуется успешная загрузка всех записей");
+    }
     var envelope = await encryptItems(items);
 
     var res = await apiFetch("/", {
@@ -2027,6 +2030,11 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   async function queueChange(op, item) {
     if (!registeredUser) {
       setStatus("Гостевой режим · удалится через 5 минут");
+      return;
+    }
+    if (!githubReady) {
+      setStatus("Облако не загружено · сохранение заблокировано");
+      toast("Запись не отправлена: дождитесь загрузки облака");
       return;
     }
     pending = true;
