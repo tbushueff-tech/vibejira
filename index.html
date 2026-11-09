@@ -446,6 +446,7 @@ button.google-ai-action[hidden] { display: none; }
 .guest-disclaimer-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .guest-disclaimer-actions button { min-height: 38px; }
 .app-hidden { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .auth-bar { display: flex; align-items: center; gap: 8px; margin-left: 0; }
 #auth-user { color: #ffffff; font-weight: 600; }
 
@@ -644,6 +645,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
 
 <div id="login-screen">
   <form class="login-card" id="login-form" autocomplete="on">
+    <h1 class="sr-only">Helper by bushueff</h1>
     <div class="login-brand"><div class="brand-logo"><img class="helper-logo" src="./assets/helper-logo-v2.png" alt="Helper by bushueff"></div></div>
     <p id="auth-description">Войдите, чтобы получить доступ к общему буферу.</p>
     <div class="login-fields">
@@ -669,7 +671,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     <h2 id="guest-disclaimer-title">Гостевой режим</h2>
     <p>Перед продолжением важно знать, как будут обрабатываться ваши данные.</p>
     <ul>
-      <li><strong>Данные не шифруются.</strong> В гостевом режиме используется обычная память браузера.</li>
+      <li><strong>Данные не шифруются.</strong> В гостевом режиме записи хранятся в открытом виде только в памяти этой вкладки и не переживают её закрытие.</li>
       <li><strong>Срок хранения — 5 минут.</strong> После этого записи автоматически удаляются.</li>
       <li><strong>Не размещайте конфиденциальную информацию.</strong> Данные могут быть доступны третьим лицам, имеющим доступ к этому устройству или браузеру.</li>
     </ul>
@@ -747,9 +749,9 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   <section class="grid" id="list" aria-label="Сохранённые тексты"></section>
 </div>
 <div class="modal-backdrop" id="profile-modal" hidden>
-  <form class="modal-card profile-card" id="profile-form">
+  <form class="modal-card profile-card" id="profile-form" role="dialog" aria-modal="true" aria-labelledby="profile-title">
     <div class="modal-head">
-      <h2>Мой профиль</h2>
+      <h2 id="profile-title">Мой профиль</h2>
       <button type="button" class="modal-close" id="profile-close" aria-label="Закрыть">×</button>
     </div>
     <div class="profile-preview-row">
@@ -768,9 +770,9 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   </form>
 </div>
 <div class="modal-backdrop" id="password-modal" hidden>
-  <form class="modal-card" id="password-form">
+  <form class="modal-card" id="password-form" role="dialog" aria-modal="true" aria-labelledby="password-title">
     <div class="modal-head">
-      <h2>Сменить пароль</h2>
+      <h2 id="password-title">Сменить пароль</h2>
       <button type="button" class="modal-close" id="password-close" aria-label="Закрыть">×</button>
     </div>
     <div class="modal-fields">
@@ -816,8 +818,6 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     }
   }
 
-  var DATA_URL = "./data/texts.json";
-  var REPO = "tbushueff-tech/vibejira";
   var items = [];
   var editingId = null;
   var query = "";
@@ -832,6 +832,16 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   var USER_AUTO_DELETE_MS = 7 * 24 * 60 * 60 * 1000;
   var AUTO_DELETE_MS = GUEST_AUTO_DELETE_MS;
   var registeredUser = false;
+  var cloudRev = 0;            // revision of the cloud buffer this tab last read or wrote
+  var pendingOps = [];         // local changes the cloud has not confirmed yet: { op, id }
+  var cloudSaveAgain = false;  // a change arrived while a save was running
+
+  function resetCloudState() {
+    cloudRev = 0;
+    pendingOps = [];
+    cloudSaveAgain = false;
+    githubReady = false;
+  }
 
   var $ = function (id) { return document.getElementById(id); };
   var loginScreen = $("login-screen");
@@ -935,6 +945,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     cryptoBundle = null;
     authToken = "";
     items = [];
+    resetCloudState();
     loginScreen.style.display = "none";
     appEl.classList.remove("app-hidden");
     accountLoginName = "";
@@ -1099,11 +1110,31 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     );
   }
 
-  async function wrapExistingKey(masterKey, password) {
-    var rawMaster = new Uint8Array(await crypto.subtle.exportKey("raw", masterKey));
+  // Re-wraps the existing master key under a new password. The key lives in
+  // memory as non-extractable, so it is recovered from the stored bundle with
+  // the CURRENT password instead of being exported.
+  async function rewrapMasterKey(bundle, currentPassword, newPassword) {
+    if (!bundle || bundle.v !== 1) {
+      throw new Error("Настройки шифрования недоступны. Войдите заново.");
+    }
+    var rawMaster;
+    try {
+      var oldWrappingKey = await deriveWrappingKey(
+        currentPassword,
+        b64ToBytes(bundle.salt),
+        Number(bundle.iterations) || CRYPTO_KDF_ITERATIONS
+      );
+      rawMaster = new Uint8Array(await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: b64ToBytes(bundle.iv) },
+        oldWrappingKey,
+        b64ToBytes(bundle.wrappedKey)
+      ));
+    } catch (e) {
+      throw new Error("Неверный текущий пароль");
+    }
     var salt = crypto.getRandomValues(new Uint8Array(16));
     var iv = crypto.getRandomValues(new Uint8Array(12));
-    var wrappingKey = await deriveWrappingKey(password, salt, CRYPTO_KDF_ITERATIONS);
+    var wrappingKey = await deriveWrappingKey(newPassword, salt, CRYPTO_KDF_ITERATIONS);
     var wrapped = new Uint8Array(await crypto.subtle.encrypt(
       { name: "AES-GCM", iv: iv }, wrappingKey, rawMaster
     ));
@@ -1262,6 +1293,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     if (!res.ok) throw new Error(data.error || "Не удалось зарегистрироваться");
     authToken = data.token || "";
     if (authToken) localStorage.setItem("buffer_auth_token", authToken);
+    resetCloudState();
     return data;
   }
 
@@ -1276,6 +1308,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     if (!res.ok) throw new Error(data.error || "Неверный логин или пароль");
     authToken = data.token || "";
     if (authToken) localStorage.setItem("buffer_auth_token", authToken);
+    resetCloudState();
 
     if (data.crypto) {
       try {
@@ -1289,6 +1322,11 @@ header .brand, header .search, header .account-menu { min-width: 0; }
       encryptionKey = created.key;
       cryptoBundle = created;
       await saveCryptoBundle(created);
+      // Another device may have created the bundle first: the server keeps
+      // the first one, so adopt it instead of our own key.
+      if (cryptoBundle && cryptoBundle.wrappedKey !== created.wrappedKey) {
+        encryptionKey = await unlockCryptoBundle(cryptoBundle, password);
+      }
     }
 
     await saveSessionEncryptionKey();
@@ -1308,6 +1346,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     items = [];
     accountProfile = null;
     accountLoginName = "";
+    resetCloudState();
     localStorage.removeItem("buffer_auth_token");
     await clearSessionEncryptionKey();
     localStorage.removeItem(KEY);
@@ -1553,7 +1592,11 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     if (next !== next2) { passwordError.textContent = "Новые пароли не совпадают"; return; }
     passwordSubmit.disabled = true;
     try {
-      var newBundle = await wrapExistingKey(encryptionKey, next);
+      if (!cryptoBundle) {
+        var fresh = await checkAuth();
+        cryptoBundle = fresh && fresh.crypto ? fresh.crypto : null;
+      }
+      var newBundle = await rewrapMasterKey(cryptoBundle, current, next);
       var res = await apiFetch("/auth/password", {
         method: "POST",
         headers: authHeaders({ "Content-Type": "text/plain;charset=UTF-8" }),
@@ -1627,7 +1670,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     }
   }
 
-  function purgeExpired(localOnly) {
+  function purgeExpired() {
     var now = Date.now();
     var before = items.length;
     items = items.filter(function (it) {
@@ -1638,20 +1681,6 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     return removed;
   }
 
-  function ensureExpiry(itemsList) {
-    // Assign expiry only to old records that lack one.
-    // Never renew an existing expiry during polling: doing so triggered
-    // an unnecessary KV write every 30 seconds (2,880 writes per day/tab).
-    var changed = false;
-    var now = Date.now();
-    itemsList.forEach(function (it) {
-      if (!Number.isFinite(it.expiresAt) || it.expiresAt <= 0) {
-        it.expiresAt = now + AUTO_DELETE_MS;
-        changed = true;
-      }
-    });
-    return changed;
-  }
   function setStatus(text) { if (syncStatus) syncStatus.textContent = text; }
 
   function toast(msg) {
@@ -1660,19 +1689,6 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     el.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2500);
-  }
-
-  function seed() {
-    return [
-      { id: uid(), title: "Приветствие для письма", example: true, copies: 0,
-        text: "Здравствуйте!\n\nСпасибо за обращение. Отвечу в течение рабочего дня.\n\nС уважением," },
-      { id: uid(), title: "Ответ на запрос цены", example: true, copies: 0,
-        text: "Добрый день! Стоимость зависит от объёма работ. Пришлите, пожалуйста, краткое описание задачи и желаемые сроки, и я подготовлю расчёт." },
-      { id: uid(), title: "Реквизиты для перевода", example: true, copies: 0,
-        text: "Получатель: Иванов Иван Иванович\nБанк: Пример-Банк\nСчёт: 40817 810 0 0000 0000000\nНазначение: оплата по счёту № 12 от 05.11.2026" },
-      { id: uid(), title: "Ссылка на встречу", example: true, copies: 0,
-        text: "https://example.com/meet/room-42\nНачало в 11:00 (Екатеринбург), подключаться за 5 минут." }
-    ];
   }
 
   function copyText(text) {
@@ -1768,10 +1784,30 @@ header .brand, header .search, header .account-menu { min-width: 0; }
       " · скопировано " + c + " " + plural(c, ["раз", "раза", "раз"]);
   }
 
+  var queryRegex = null;
+  var queryRegexSource = "";
+
+  // Literal (escaped) text, case-insensitive. The same regex drives filtering
+  // and highlighting, so match positions always refer to the original string.
+  function getQueryRegex() {
+    if (!query) return null;
+    if (queryRegexSource !== query) {
+      var literal = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      try { queryRegex = new RegExp(literal, "giu"); }
+      catch (e) { queryRegex = new RegExp(literal, "gi"); }
+      queryRegexSource = query;
+    }
+    queryRegex.lastIndex = 0;
+    return queryRegex;
+  }
+
   function matches(it) {
-    if (!query) return true;
-    var q = query.toLowerCase();
-    return (it.title || "").toLowerCase().indexOf(q) !== -1 || it.text.toLowerCase().indexOf(q) !== -1;
+    var re = getQueryRegex();
+    if (!re) return true;
+    re.lastIndex = 0;
+    if (re.test(it.title || "")) return true;
+    re.lastIndex = 0;
+    return re.test(it.text);
   }
 
   function el(tag, cls, text) {
@@ -1781,28 +1817,25 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     return x;
   }
 
-  // Match literal input, not a regular expression. Text is always added as
-  // text nodes, so search terms cannot inject HTML into saved entries.
+  // Text is always added as text nodes, so search terms cannot inject HTML
+  // into saved entries.
   function highlightMatches(node, value) {
-    if (!query) {
+    var re = getQueryRegex();
+    if (!re) {
       node.textContent = value;
       return;
     }
-    var needle = query.toLocaleLowerCase();
-    var lower = value.toLocaleLowerCase();
     var cursor = 0;
-    while (cursor < value.length) {
-      var at = lower.indexOf(needle, cursor);
-      if (at < 0) {
-        node.appendChild(document.createTextNode(value.slice(cursor)));
-        break;
-      }
-      if (at > cursor) node.appendChild(document.createTextNode(value.slice(cursor, at)));
-      var highlight = el("mark", "search-hit", value.slice(at, at + query.length));
+    var m;
+    while ((m = re.exec(value)) !== null) {
+      if (!m[0].length) { re.lastIndex++; continue; }
+      if (m.index > cursor) node.appendChild(document.createTextNode(value.slice(cursor, m.index)));
+      var highlight = el("mark", "search-hit", m[0]);
       node.appendChild(highlight);
       searchHits.push(highlight);
-      cursor = at + query.length;
+      cursor = m.index + m[0].length;
     }
+    if (cursor < value.length) node.appendChild(document.createTextNode(value.slice(cursor)));
   }
 
   function activateSearchResult(scroll) {
@@ -1989,19 +2022,95 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     updateLiveCount();
   }
 
-  // ВАЖНО: сюда вставляется Fine-grained GitHub token с правом
-  // Contents: Read and write только для репозитория tbushueff-tech/vibejira.
-  // Не используйте основной аккаунтный токен.
-  // GitHub token хранится только в Cloudflare Worker.
-  // Data is synchronized via the Cloudflare Worker with bearer authorization.
+  function handleUnauthorized() {
+    authToken = "";
+    encryptionKey = null;
+    cryptoBundle = null;
+    items = [];
+    accountProfile = null;
+    accountLoginName = "";
+    resetCloudState();
+    try { localStorage.removeItem("buffer_auth_token"); } catch (e) {}
+    clearSessionEncryptionKey();
+    showLogin();
+    loginError.textContent = "Сессия истекла. Войдите снова.";
+  }
 
-  function utf8b64(obj) {
-    var bytes = new TextEncoder().encode(JSON.stringify(obj));
-    var binary = "";
-    for (var i = 0; i < bytes.length; i += 0x8000) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  function unauthorizedError() {
+    var err = new Error("Сессия истекла");
+    err.unauthorized = true;
+    return err;
+  }
+
+  // Reads the cloud buffer. Never writes anything and never touches local state.
+  async function fetchCloud(signal) {
+    var res = await apiFetch("/", {
+      credentials: "omit",
+      headers: authHeaders(),
+      cache: "no-store",
+      signal: signal
+    });
+    if (res.status === 401) throw unauthorizedError();
+    if (!res.ok) throw new Error("API HTTP " + res.status);
+    setStatus("Чтение ответа облака…");
+    var data = await readCloudJson(res);
+    // Old unencrypted arrays carry no revision.
+    var rev = data && !Array.isArray(data) && Number.isSafeInteger(data.rev) ? data.rev : 0;
+    var remoteItems = await bounded(
+      Array.isArray(data) ? Promise.resolve(data) : decryptItems(data),
+      90000,
+      "Расшифровка облачных записей"
+    );
+    if (!Array.isArray(remoteItems)) throw new Error("Некорректный ответ облака");
+    return { items: remoteItems, rev: rev };
+  }
+
+  async function fetchCloudWithTimeout(ms) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, ms);
+    try {
+      return await fetchCloud(controller.signal);
+    } catch (e) {
+      if (controller.signal.aborted && e) e.timedOut = true;
+      throw e;
+    } finally {
+      clearTimeout(timer);
     }
-    return btoa(binary);
+  }
+
+  // Puts this tab's unsaved changes on top of a cloud snapshot, so neither
+  // side's changes are lost. Matching is by item id.
+  function applyPendingOps(remoteItems) {
+    var local = Object.create(null);
+    items.forEach(function (it) { local[it.id] = it; });
+    var merged = remoteItems.slice();
+    function indexOfId(id) {
+      for (var i = 0; i < merged.length; i++) if (merged[i].id === id) return i;
+      return -1;
+    }
+    pendingOps.forEach(function (change) {
+      var at = indexOfId(change.id);
+      if (change.op === "delete") {
+        if (at >= 0) merged.splice(at, 1);
+        return;
+      }
+      var mine = local[change.id];
+      if (!mine) return;                 // removed again later: its delete follows
+      if (at >= 0) merged[at] = mine;
+      else if (change.op === "add") merged.unshift(mine);
+      // An update of an item that another device deleted is dropped.
+    });
+    return merged;
+  }
+
+  // Another device changed the cloud buffer since this tab last looked.
+  async function mergeWithCloud() {
+    var remote = await fetchCloudWithTimeout(60000);
+    items = applyPendingOps(remote.items);
+    cloudRev = remote.rev;
+    purgeExpired();
+    render();
+    saveLocal();
   }
 
   async function saveGithub() {
@@ -2009,55 +2118,90 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     if (!githubReady) {
       throw new Error("Сохранение в облако заблокировано: сначала требуется успешная загрузка всех записей");
     }
-    var envelope = await encryptItems(items);
+    for (var attempt = 0; attempt < 2; attempt++) {
+      var opsSent = pendingOps.length;
+      var envelope = await encryptItems(items.slice());
+      envelope.baseRevision = cloudRev;
 
-    var res = await apiFetch("/", {
-      method: "POST",
-      credentials: "omit",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify(envelope)
-    });
+      var res = await apiFetch("/", {
+        method: "POST",
+        credentials: "omit",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(envelope)
+      });
 
-    if (!res.ok) {
-      var body = await res.text();
-      throw new Error("API HTTP " + res.status + ": " + body);
+      if (res.status === 401) throw unauthorizedError();
+      if (res.status === 409 && attempt === 0) {
+        setStatus("Облако изменилось на другом устройстве, объединяю…");
+        await mergeWithCloud();
+        continue;
+      }
+      if (!res.ok) {
+        var body = await res.text();
+        var failure = new Error("API HTTP " + res.status + ": " + body);
+        failure.status = res.status;
+        throw failure;
+      }
+      var saved = {};
+      try { saved = await res.json(); } catch (e) {}
+      if (Number.isSafeInteger(saved.revision)) cloudRev = saved.revision;
+      pendingOps = pendingOps.slice(opsSent);
+      lastCloudSaveAt = Date.now();
+      return;
     }
-    lastCloudSaveAt = Date.now();
   }
 
-  async function queueChange(op, item) {
+  function queueChange(op, item) {
     if (!registeredUser) {
       setStatus("Гостевой режим · удалится через 5 минут");
       return;
     }
+    if (item && item.id) pendingOps.push({ op: op, id: item.id });
     if (!githubReady) {
-      setStatus("Облако не загружено · сохранение заблокировано");
-      toast("Запись не отправлена: дождитесь загрузки облака");
+      // Kept in pendingOps: applied on top of the cloud data once it loads.
+      setStatus("Облако не загружено · изменения сохранятся после подключения");
+      toast("Облако ещё не загружено, изменение сохранится позже");
       return;
     }
     pending = true;
     setStatus("Изменения будут сохранены…");
     clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(runCloudSave, 1200);
+  }
 
-    cloudSaveTimer = setTimeout(async function () {
-      if (cloudSaveRunning) return;
-      cloudSaveRunning = true;
-      try {
-        await saveGithub();
-        await saveLocal();
-        setStatus("Синхронизировано через облако");
-        toast("Сохранено");
-      } catch (e) {
-        console.error(e);
-        setStatus("Ошибка синхронизации");
-        toast("Не удалось сохранить: " + e.message);
-      } finally {
-        cloudSaveRunning = false;
+  async function runCloudSave() {
+    if (cloudSaveRunning) {
+      // A save is in flight: run again right after it, so this change is not dropped.
+      cloudSaveAgain = true;
+      return;
+    }
+    cloudSaveRunning = true;
+    try {
+      await saveGithub();
+      await saveLocal();
+      setStatus("Синхронизировано через облако");
+      toast("Сохранено");
+    } catch (e) {
+      if (e && e.unauthorized) {
+        handleUnauthorized();
+        return;
+      }
+      console.error(e);
+      // A request the server rejects as invalid will not succeed on retry.
+      if (e && e.status >= 400 && e.status < 500 && e.status !== 409) pendingOps = [];
+      setStatus("Ошибка синхронизации");
+      toast("Не удалось сохранить: " + e.message);
+    } finally {
+      cloudSaveRunning = false;
+      if (cloudSaveAgain && authToken) {
+        cloudSaveAgain = false;
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = setTimeout(runCloudSave, 300);
+      } else {
+        cloudSaveAgain = false;
         pending = false;
       }
-    }, 1200);
+    }
   }
 
   // Reads never write to KV, expire keys, or remove the encrypted local cache.
@@ -2133,31 +2277,24 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     // A stalled corporate proxy must not start a new long download every 30s.
     if (!force && lastCloudFailureAt && Date.now() - lastCloudFailureAt < 120000) return;
     cloudReadInFlight = true;
-    var controller = new AbortController();
-    // Account data size and network conditions can differ substantially.
-    var timer = setTimeout(function () { controller.abort(); }, 120000);
     setStatus("Подключение к облаку…");
     try {
-      var res = await apiFetch("/", {
-        credentials: "omit",
-        headers: authHeaders(),
-        cache: "no-store",
-        signal: controller.signal
-      });
-      if (!res.ok) throw new Error("API HTTP " + res.status);
-      setStatus("Чтение ответа облака…");
-      var data = await readCloudJson(res);
-      clearTimeout(timer);
-      var remoteItems = await bounded(
-        Array.isArray(data) ? Promise.resolve(data) : decryptItems(data),
-        90000,
-        "Расшифровка облачных записей"
-      );
-      if (!Array.isArray(remoteItems)) throw new Error("Некорректный ответ облака");
-      // A stale/empty cloud snapshot must not replace a recent local cache.
-      if (!(remoteItems.length === 0 && items.length > 0 &&
-          localCacheLoadedAt && Date.now() - localCacheLoadedAt < 60000)) {
-        items = remoteItems;
+      // Account data size and network conditions can differ substantially.
+      var remote = await fetchCloudWithTimeout(120000);
+
+      // KV is eventually consistent. A snapshot older than what this tab has
+      // already read or written must not replace newer local state.
+      if (remote.rev < cloudRev) {
+        setStatus("Облако ещё обновляется…");
+        return;
+      }
+      cloudRev = remote.rev;
+
+      // A brand-new (never written) cloud buffer must not wipe a fresh local cache.
+      var keepLocal = remote.rev === 0 && remote.items.length === 0 && items.length > 0 &&
+        localCacheLoadedAt && Date.now() - localCacheLoadedAt < 60000;
+      if (!keepLocal) {
+        items = pendingOps.length ? applyPendingOps(remote.items) : remote.items;
         render();
         // Local encryption/cache can take time; it is not a cloud read error.
         try {
@@ -2166,22 +2303,31 @@ header .brand, header .search, header .account-menu { min-width: 0; }
           console.warn("Encrypted local cache update delayed:", cacheError);
         }
       }
-      purgeExpired(true);
+      purgeExpired();
       githubReady = true;
       lastCloudFailureAt = 0;
       setStatus("Синхронизировано через облако");
       render();
+      if (pendingOps.length) {
+        // Changes made before the cloud was reachable: send them now.
+        pending = true;
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = setTimeout(runCloudSave, 300);
+      }
     } catch (e) {
+      if (e && e.unauthorized) {
+        handleUnauthorized();
+        return;
+      }
       githubReady = false;
       lastCloudFailureAt = Date.now();
-      if (controller.signal.aborted) {
+      if (e && e.timedOut) {
         setStatus("Облако отвечает слишком медленно (более 120 секунд)");
       } else {
         setStatus("Ошибка облака: " + (e && e.message ? e.message : String(e)));
       }
       console.error("Cloud load failed:", e);
     } finally {
-      clearTimeout(timer);
       cloudReadInFlight = false;
     }
   }
@@ -2229,6 +2375,14 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     query = searchEl.value.trim();
     activeSearchIndex = 0;
     render();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    guestDisclaimer.hidden = true;
+    profileModal.hidden = true;
+    passwordModal.hidden = true;
+    accountDropdown.hidden = true;
+    accountButton.setAttribute("aria-expanded", "false");
   });
   searchPrev.addEventListener("click", function () { moveSearchResult(-1); });
   searchNext.addEventListener("click", function () { moveSearchResult(1); });
@@ -2280,6 +2434,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
         return;
       }
       showApp(session.username || "", session.profile || null);
+      cryptoBundle = session.crypto || null;
       var cachedItems = await loadLocal();
       if (cachedItems) {
         items = cachedItems;
@@ -2298,7 +2453,6 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     var changed = purgeExpired(true);
     if (changed) {
       render();
-      queueChange("delete-expired", null);
       return;
     }
     // Update counters without replacing the cards or interrupting button presses.

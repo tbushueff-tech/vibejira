@@ -7,8 +7,16 @@ on:
     paths:
       - "worker/**"
       - "wrangler.toml"
+      - "package.json"
       - ".github/workflows/deploy-worker.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -22,6 +30,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Test Worker
+        run: npm test
 
       - name: Deploy Worker
         run: npx wrangler@4 deploy

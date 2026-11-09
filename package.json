@@ -1,0 +1,8 @@
+{
+  "name": "vibejira",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test worker/test/*.test.mjs"
+  }
+}

@@ -27,6 +27,8 @@ function reply(int $status, array $payload): void {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
+    // A 204 response must not carry a body.
+    if ($status === 204) return;
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 
@@ -35,7 +37,7 @@ if ($origin === HELPER_ORIGIN) {
     header('Access-Control-Allow-Origin: ' . HELPER_ORIGIN);
     header('Vary: Origin');
     header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-    header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Buffer-Key');
+    header('Access-Control-Allow-Headers: Authorization, Content-Type');
     header('Access-Control-Max-Age: 86400');
 }
 header('Cache-Control: no-store, private');
@@ -79,9 +81,6 @@ if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
 } elseif (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
     $headers[] = 'Authorization: ' . $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
 }
-if (isset($_SERVER['HTTP_X_BUFFER_KEY'])) {
-    $headers[] = 'X-Buffer-Key: ' . $_SERVER['HTTP_X_BUFFER_KEY'];
-}
 if (isset($_SERVER['CONTENT_TYPE'])) {
     $headers[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
 }
@@ -116,7 +115,8 @@ if ($method === 'POST') curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 $result = curl_exec($ch);
 $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $curlError = curl_error($ch);
-curl_close($ch);
+// curl_close() does nothing since PHP 8.0 and is deprecated in PHP 8.5.
+if (PHP_VERSION_ID < 80000) curl_close($ch);
 
 if ($result === false || $status < 100) {
     // Do not surface detailed internal connectivity or credentials to browsers.
