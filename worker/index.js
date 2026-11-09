@@ -390,6 +390,18 @@ function clearSessionCookie() {
   return "buffer_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=None; Partitioned";
 }
 
+// Keep cloud reads small: some networks stall on a large JSON response body.
+// No change to the existing KV structure, encryption, or write operations.
+const CLOUD_CHUNK_CHARS = 2048;
+function cloudRevision(source) {
+  let hash = 2166136261;
+  for (let i = 0; i < source.length; i++) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return source.length.toString(36) + "-" + (hash >>> 0).toString(36);
+}
+
 export default {
   async scheduled() {
     // No KV scan is needed anymore. Buffer keys expire automatically in KV.
@@ -670,6 +682,30 @@ export default {
 
       if (request.method === "GET") {
         const encrypted = await getEncryptedUserBuffer(env, username);
+
+        // Old clients still receive the exact original full response.
+        // New clients request short independently readable JSON chunks.
+        if (url.searchParams.get("meta") === "1" || url.searchParams.has("chunk")) {
+          const serialized = JSON.stringify(encrypted);
+          const revision = cloudRevision(serialized);
+          if (url.searchParams.get("meta") === "1") {
+            return json({ v: 3, total: serialized.length, revision }, 200, origin);
+          }
+          const rawOffset = url.searchParams.get("chunk");
+          if (!/^(0|[1-9][0-9]*)$/.test(rawOffset || "")) {
+            return json({ ok: false, error: "Invalid chunk offset" }, 400, origin);
+          }
+          const offset = Number(rawOffset);
+          if (!Number.isSafeInteger(offset) || offset > serialized.length) {
+            return json({ ok: false, error: "Chunk out of range" }, 416, origin);
+          }
+          const next = Math.min(offset + CLOUD_CHUNK_CHARS, serialized.length);
+          return json({
+            v: 3, offset, total: serialized.length, revision,
+            chunk: serialized.slice(offset, next),
+            next: next < serialized.length ? next : null
+          }, 200, origin);
+        }
         return json(encrypted, 200, origin);
       }
 
