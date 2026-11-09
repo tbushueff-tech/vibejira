@@ -1412,7 +1412,7 @@ button.google-ai-action[hidden] { display: none; }
         data = await login(username, password);
       }
       showApp(data.username, data.profile);
-      var cachedItems = await loadLocal();
+      var cachedItems = await bounded(loadLocal(), 20000, "Загрузка локального кэша");
       if (cachedItems) {
         items = cachedItems;
         render();
@@ -2123,60 +2123,61 @@ button.google-ai-action[hidden] { display: none; }
     }, 1200);
   }
 
+  // Never write to remote KV as a side effect of merely opening the page.
+  // The user's local encrypted data must survive timeouts and damaged cloud responses.
+  var cloudReadInFlight = false;
+  function bounded(promise, ms, label) {
+    var timer;
+    return Promise.race([
+      Promise.resolve(promise),
+      new Promise(function (_, reject) {
+        timer = setTimeout(function () { reject(new Error(label + " (тайм-аут)")); }, ms);
+      })
+    ]).finally(function () { clearTimeout(timer); });
+  }
+
   async function loadGithub(force) {
     if (!registeredUser || !authToken || !encryptionKey) return;
-    if (pending && !force) return;
-    // Cloudflare KV is eventually consistent: immediately after a successful
-    // write, a list() request can briefly return the previous snapshot.
-    // Do not let that stale snapshot erase freshly saved local state.
+    if ((pending && !force) || cloudReadInFlight) return;
     if (!force && lastCloudSaveAt && Date.now() - lastCloudSaveAt < 15000) return;
+    cloudReadInFlight = true;
+    setStatus("Загрузка записей из облака…");
     try {
-      var res = await apiFetch("/", {
+      var res = await bounded(apiFetch("/", {
         credentials: "omit",
         headers: authHeaders({ "X-Buffer-Key": BUFFER_KEY }),
         cache: "no-store"
-      });
+      }), 25000, "Подключение к облаку");
       if (!res.ok) throw new Error("API HTTP " + res.status);
-      var data = await res.json();
-      if (Array.isArray(data)) {
-        // Одноразовая миграция старого открытого буфера.
-        items = data;
-        await saveGithub();
-        await saveLocal();
-      } else {
-        var remoteItems = await decryptItems(data);
-        // Immediately after a reload/login, the local encrypted cache may be
-        // newer than a temporarily stale KV list() result.
-        if (
-          remoteItems.length === 0 &&
-          items.length > 0 &&
-          localCacheLoadedAt &&
-          Date.now() - localCacheLoadedAt < 15000
-        ) {
-          await saveGithub();
-        } else {
-          items = remoteItems;
-          await saveLocal();
-        }
+      var data = await bounded(res.json(), 20000, "Чтение ответа облака");
+      var remoteItems = await bounded(
+        Array.isArray(data) ? Promise.resolve(data) : decryptItems(data),
+        20000,
+        "Расшифровка облачных записей"
+      );
+      if (!Array.isArray(remoteItems)) throw new Error("Некорректный ответ облака");
+      // Do not overwrite a recently loaded local cache with an empty remote
+      // snapshot. Never save that cache to KV automatically on read.
+      if (!(remoteItems.length === 0 && items.length > 0 &&
+          localCacheLoadedAt && Date.now() - localCacheLoadedAt < 60000)) {
+        items = remoteItems;
+        await bounded(saveLocal(), 20000, "Сохранение локального кэша");
       }
-
-      var expiryChanged = ensureExpiry(items);
-      var expiredRemoved = purgeExpired(true);
-      if (expiryChanged || expiredRemoved) {
-        await saveGithub();
-        await saveLocal();
-      }
+      // Expiry cleanup is local only; writes happen on explicit user changes.
+      purgeExpired(true);
       githubReady = true;
-      setStatus("Синхронизировано через GitHub");
+      setStatus("Синхронизировано через облако");
       render();
     } catch (e) {
       githubReady = false;
-      setStatus("Облако недоступно");
-      console.error(e);
+      setStatus("Ошибка облака: " + (e && e.message ? e.message : String(e)));
+      console.error("Cloud load failed:", e);
+    } finally {
+      cloudReadInFlight = false;
     }
   }
 
-  form.addEventListener("submit", function (e) {
+    form.addEventListener("submit", function (e) {
     e.preventDefault();
     var text = bodyEl.value.replace(/\s+$/, "");
     var title = titleEl.value.trim();
@@ -2255,7 +2256,8 @@ button.google-ai-action[hidden] { display: none; }
       return;
     }
     try {
-      var session = await checkAuth();
+      setStatus("Проверка авторизации…");
+      var session = await bounded(checkAuth(), 25000, "Проверка авторизации");
       if (!session || !session.authenticated) {
         authToken = "";
         localStorage.removeItem("buffer_auth_token");
@@ -2263,7 +2265,7 @@ button.google-ai-action[hidden] { display: none; }
         showLogin();
         return;
       }
-      var restored = await restoreSessionEncryptionKey();
+      var restored = await bounded(restoreSessionEncryptionKey(), 12000, "Восстановление ключа");
       if (!restored) {
         showUnlock(session.username || "");
         return;
@@ -2279,6 +2281,7 @@ button.google-ai-action[hidden] { display: none; }
       await loadGithub(false);
     } catch (e) {
       console.error("Session restore failed:", e);
+      setStatus("Ошибка восстановления: " + (e && e.message ? e.message : String(e)));
       showLogin();
     }
   })();
