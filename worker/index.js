@@ -307,9 +307,32 @@ async function handleBuffer(request, env, session) {
   if (request.method === "GET") {
     const current = await loadBuffer(env, username, 30);
     const items = current.items.filter(item => isActive(item, now));
-    // Old unencrypted arrays are still returned unchanged for old clients.
-    if (current.legacyPlain) return json(items, 200);
-    return json({ v: 2, rev: current.rev, items }, 200);
+    // Original JSON GET is unchanged for existing devices. The new client
+    // downloads the same snapshot in short, independently readable chunks.
+    // The numeric revision stays compatible with the existing KV schema.
+    const payload = current.legacyPlain ? items : { v: 2, rev: current.rev, items };
+    const url = new URL(request.url);
+    if (url.searchParams.get("meta") === "1" || url.searchParams.has("chunk")) {
+      const body = JSON.stringify(payload);
+      if (url.searchParams.get("meta") === "1") {
+        return json({ v: 3, total: body.length, revision: current.rev }, 200);
+      }
+      const rawOffset = url.searchParams.get("chunk");
+      if (!/^(0|[1-9][0-9]*)$/.test(rawOffset || "")) {
+        return json({ ok: false, error: "Invalid chunk offset" }, 400);
+      }
+      const offset = Number(rawOffset);
+      if (!Number.isSafeInteger(offset) || offset >= body.length) {
+        return json({ ok: false, error: "Chunk offset out of range" }, 416);
+      }
+      const nextOffset = Math.min(offset + 2048, body.length);
+      return json({
+        v: 3, offset, revision: current.rev, total: body.length,
+        chunk: body.slice(offset, nextOffset),
+        next: nextOffset < body.length ? nextOffset : null
+      }, 200);
+    }
+    return json(payload, 200);
   }
 
   if (request.method === "POST") {
