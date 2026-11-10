@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CloudApi, ApiError } from "./api.js";
-import { createEncryption, unlockEncryption, encryptBuffer, decryptBuffer, rotateEncryption } from "./crypto.js";
+import { createEncryption, unlockEncryption, encryptBuffer, decryptBuffer, rotateEncryption, encryptLibraryEntry, decryptLibraryEntry } from "./crypto.js";
 
 test("AES-GCM encrypted envelopes are backward-compatible and decrypt accurately", async () => {
   const { key, bundle } = await createEncryption("sample-password-only-for-tests");
@@ -78,4 +78,22 @@ test("bad encryption key never silently returns an empty buffer", async () => {
   const b = await createEncryption("password-b");
   const encrypted = await encryptBuffer([{ id: "1", text: "must-not-drop", expiresAt: 1 }], a.key);
   await assert.rejects(() => decryptBuffer(encrypted, b.key));
+});
+
+test("permanent code library encrypts title, source code and notes without expiration", async () => {
+  const one = await createEncryption("library-test-password");
+  const other = await createEncryption("different-password");
+  const input = {
+    id:"library-123", title:"Рабочий Groovy", text:"println 'secret-code'",
+    notes:"только для Jira", language:"groovy", createdAt:123, updatedAt:124
+  };
+  const encrypted = await encryptLibraryEntry(input, one.key);
+  assert.equal(encrypted.v, 2);
+  assert.equal(encrypted.revision, 0);
+  assert.equal(Object.hasOwn(encrypted, "expiresAt"), false);
+  assert.equal(JSON.stringify(encrypted).includes("secret-code"),false);
+  assert.equal(JSON.stringify(encrypted).includes("только для Jira"),false);
+  const restored = await decryptLibraryEntry({...encrypted,revision:1},one.key);
+  assert.deepEqual(restored,{...input,revision:1});
+  await assert.rejects(() => decryptLibraryEntry(encrypted,other.key));
 });

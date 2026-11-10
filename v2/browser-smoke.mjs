@@ -7,6 +7,7 @@ const apiOrigin = "https://vibejira.t-bushueff.workers.dev";
 let encrypted = { v: 2, items: [] };
 let signedToken = "browser-test-token";
 let cloudRevision = 0;
+const libraryRecords = new Map();
 let bundle = null;
 
 function revision(text) {
@@ -48,6 +49,40 @@ await page.route(apiOrigin + "/**", async route => {
     response = { ok: true, username: body.username, token: signedToken, crypto: bundle, profile: null };
   } else if (!authorized) {
     status = 401; response = { ok: false, error: "Unauthorized" };
+  } else if (pathname === "/library" && request.method() === "GET") {
+    response = { ok: true, items: [...libraryRecords.keys()].map(id => ({id})), nextCursor: null };
+  } else if (pathname === "/library" && request.method() === "POST") {
+    const old = libraryRecords.get(body.id);
+    const rev = old?.revision || 0;
+    if (body.revision !== rev) {
+      status = 409; response = { error: "stale library item" };
+    } else {
+      const record = {...body, revision: rev + 1};
+      libraryRecords.set(body.id, record);
+      response = { ok: true, revision: record.revision };
+    }
+  } else if (pathname.startsWith("/library/")) {
+    const id = decodeURIComponent(pathname.slice("/library/".length));
+    const entry = libraryRecords.get(id);
+    if (!entry) {
+      status = 404; response = { error: "missing library item" };
+    } else if (request.method() === "DELETE") {
+      if (Number(url.searchParams.get("revision")) !== entry.revision) {
+        status = 409; response = { error: "conflict" };
+      } else {
+        libraryRecords.delete(id); response = { ok: true };
+      }
+    } else {
+      const text = JSON.stringify(entry);
+      if (url.searchParams.get("meta") === "1") {
+        response = { v: 3, total: text.length, revision: entry.revision };
+      } else {
+        const at = Number(url.searchParams.get("chunk"));
+        const end = Math.min(at + 2048, text.length);
+        response = { v: 3, offset: at, total: text.length, revision: entry.revision,
+          chunk: text.slice(at, end), next: end < text.length ? end : null };
+      }
+    }
   } else if (pathname === "/" && request.method() === "POST") {
     const now = cloudRevision;
     if (body.baseRevision !== now) {
@@ -92,8 +127,32 @@ try {
   assert.equal(encrypted.items.length, 1);
   await page.locator("#search").fill("Browser reload");
   await page.getByText("Browser reload regression").waitFor();
+  await page.locator("#search").fill("");
+  await page.getByRole("button", { name: "☆ В библиотеку" }).first().click();
+  await page.getByText("Код сохранён в постоянной библиотеке").waitFor();
+  assert.equal(libraryRecords.size, 1, "Library must contain a permanent encrypted entry");
+  assert.ok(!JSON.stringify([...libraryRecords.values()]).includes("Запись должна"),
+    "Plaintext must not be stored in Cloudflare");
+  assert.equal(encrypted.items.length, 1, "Clipboard must remain unchanged");
+  await page.reload();
+  await page.getByText("Синхронизировано через Cloudflare").waitFor({timeout:30000});
+  await page.locator("#tab-library").click();
+  await page.getByText("Библиотека синхронизирована", {exact:false}).waitFor({timeout:30000});
+  await page.locator("#library-list").getByText("Browser reload regression").waitFor();
+  await page.locator("#library-list").getByRole("button",{name:"Изменить"}).click();
+  await page.locator("#library-notes").fill("Проверенный фрагмент");
+  await page.locator("#library-form").evaluate(form => form.requestSubmit());
+  await page.getByText("Код сохранён в постоянной библиотеке").waitFor();
+  assert.equal(libraryRecords.size,1);
+  assert.equal(encrypted.items.length,1);
+  await page.reload();
+  await page.locator("#tab-library").click();
+  await page.getByText("Библиотека синхронизирована", {exact:false}).waitFor({timeout:30000});
+  await page.locator("#library-list").getByText("Проверенный фрагмент").waitFor();
+  await page.locator("#tab-buffer").click();
+  await page.locator("#list").getByText("Browser reload regression").waitFor();
   assert.deepEqual(failures, []);
-  console.log("V2 browser smoke: register, write, reload, decrypt and search passed");
+  console.log("Browser smoke: clipboard and permanent encrypted library survive reload and edit");
 } finally {
   await browser.close();
 }

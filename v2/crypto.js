@@ -133,3 +133,24 @@ export async function writeCache(username, items, key) {
 export function clearScopedCache(username) {
   localStorage.removeItem(cacheKey(username)); // never delete the legacy backup
 }
+
+// Permanent library entries use the same account master key but no expiresAt.
+// Titles, code, language and notes remain encrypted end to end.
+export async function encryptLibraryEntry(entry, key, revision = 0) {
+  if (!key) throw new Error("Нет ключа шифрования библиотеки");
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const content = enc.encode(JSON.stringify(entry));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, content);
+  return { v: 2, id: entry.id, iv: toBase64(iv),
+    ciphertext: toBase64(new Uint8Array(encrypted)), revision };
+}
+export async function decryptLibraryEntry(item, key) {
+  if (!key || !item || item.v !== 2 || !item.iv || !item.ciphertext)
+    throw new Error("Неверная зашифрованная запись библиотеки");
+  const bytes = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromBase64(item.iv) },
+    key, fromBase64(item.ciphertext));
+  const value = JSON.parse(dec.decode(bytes));
+  if (!value || typeof value !== "object" || value.id !== item.id)
+    throw new Error("Неверное содержимое записи библиотеки");
+  return { ...value, revision: item.revision };
+}

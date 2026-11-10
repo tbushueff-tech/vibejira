@@ -4,6 +4,7 @@ import {
   decryptBuffer, restoreKey, rememberKey, forgetKey, readCache, writeCache,
   clearScopedCache
 } from "./crypto.js";
+import { createLibrary } from "./library.js";
 
 // Jira Helper V2. No framework, keeps the existing HTML/CSS and element IDs.
 // The UI never treats a partial remote download as a valid cloud snapshot.
@@ -39,6 +40,17 @@ const view = {
   passwordError: $("password-error"), passwordSubmit: $("password-submit"),
   toast: $("toast"), guestDisclaimer: $("guest-disclaimer")
 };
+const library = createLibrary({
+  api,
+  session: () => state,
+  notify: message => notify(message),
+  copyText: text => copyText(text),
+  onTabChange: () => {
+    state.query = view.search.value.trim();
+    render();
+  }
+});
+
 const expiry = item => Number(item.expiresAt) || 0;
 const active = item => !expiry(item) || expiry(item) > Date.now();
 const plural = (n, one, few, many) => {
@@ -115,6 +127,7 @@ async function afterLogin(data, key, bundle) {
   if (bundle) localStorage.setItem("vibejira-v2-bundle:" + data.username.toLowerCase(), JSON.stringify(bundle));
   state.token = data.token; api.setToken(data.token);
   localStorage.setItem(TOKEN_KEY, data.token);
+  library.reset();
   showApp("account", data.username, data.profile);
   await rememberKey(data.username, key).catch(error => console.warn("Key storage:", error));
   await localDisplay(data.username, key);
@@ -290,6 +303,13 @@ function card(item) {
     setTimeout(() => { copy.textContent = "Копировать"; copy.classList.remove("done"); }, 1500);
     if (editable()) mutate(() => { item.copies = (item.copies || 0) + 1; });
   }); actions.append(copy);
+  if (state.mode === "account") {
+    const send = el("button", "ghost", "☆ В библиотеку");
+    send.type = "button";
+    send.title = "Сохранить код навсегда, отдельно от временного буфера";
+    send.addEventListener("click", () => library.sendFromBuffer(item));
+    actions.append(send);
+  }
   if (seemsCode(item.text || "")) {
     const google = el("button", "google-ai-action", "✦ В Google AI");
     google.type = "button"; google.addEventListener("click", () => googleAi(item.text)); actions.append(google);
@@ -314,6 +334,10 @@ function card(item) {
   return node;
 }
 function render() {
+  if (library.isActive()) {
+    library.render(state.query);
+    return;
+  }
   const shown = state.items.filter(item => {
     const word = state.query.toLocaleLowerCase();
     return !word || (item.title || "").toLocaleLowerCase().includes(word) ||
@@ -336,7 +360,8 @@ function updateCount() {
   view.liveCount.textContent = text.length + " симв. · " + (text ? text.split(/\s+/).length : 0) + " слов";
 }
 function changeSearch(delta) {
-  const matches = [...view.list.querySelectorAll("mark")];
+  const scope = library.isActive() ? $("library-list") : view.list;
+  const matches = [...scope.querySelectorAll("mark")];
   if (!matches.length) return;
   state.currentSearch = (state.currentSearch + delta + matches.length) % matches.length;
   matches[state.currentSearch].scrollIntoView({ behavior: "smooth", block: "center" });
@@ -371,6 +396,7 @@ async function logout() {
   try { await api.logout(); } catch (error) { console.warn("Logout:", error); }
   state.generation++; state.token = ""; state.key = null; state.bundle = null;
   state.profile = null; state.items = []; state.hydrated = false; state.revision = null; state.username = "";
+  library.reset();
   api.setToken("");
   localStorage.removeItem(TOKEN_KEY);
   if (username) await forgetKey(username).catch(console.warn);
@@ -422,6 +448,7 @@ function bind() {
   $("guest-cancel").addEventListener("click", () => { view.guestDisclaimer.hidden = true; });
   $("guest-confirm").addEventListener("click", () => {
     view.guestDisclaimer.hidden = true; state.generation++; state.items = []; state.hydrated = true;
+    library.reset();
     showApp("guest"); setStatus("Гостевой режим · данные не сохраняются");
   });
   view.guestDisclaimer.addEventListener("click", e => {
@@ -452,7 +479,8 @@ function bind() {
   });
   $("composer-google-ai").addEventListener("click", () => googleAi(view.body.value));
   view.search.addEventListener("input", () => {
-    state.query = view.search.value.trim(); state.currentSearch = 0; render();
+    state.query = view.search.value.trim(); state.currentSearch = 0;
+    library.setSearch(state.query); render();
   });
   view.searchPrev.addEventListener("click", () => changeSearch(-1));
   view.searchNext.addEventListener("click", () => changeSearch(1));
@@ -564,6 +592,7 @@ async function startup() {
     state.key = key;
     state.bundle = session.crypto || null;
     state.generation++;
+    library.reset();
     showApp("account", session.username, session.profile);
     await localDisplay(session.username, key);
     await refreshCloud();
