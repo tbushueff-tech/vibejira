@@ -305,13 +305,16 @@ async function handleBuffer(request, env, session) {
   const now = Date.now();
 
   if (request.method === "GET") {
-    const current = await loadBuffer(env, username, 30);
+    const url = new URL(request.url);
+    const chunkedRead = url.searchParams.get("meta") === "1" || url.searchParams.has("chunk");
+    // Chunked loads must bypass edge-cached KV values: every chunk must
+    // represent the same revision, especially immediately after a write.
+    const current = await loadBuffer(env, username, chunkedRead ? undefined : 30);
     const items = current.items.filter(item => isActive(item, now));
     // Original JSON GET is unchanged for existing devices. The new client
     // downloads the same snapshot in short, independently readable chunks.
     // The numeric revision stays compatible with the existing KV schema.
     const payload = current.legacyPlain ? items : { v: 2, rev: current.rev, items };
-    const url = new URL(request.url);
     if (url.searchParams.get("meta") === "1" || url.searchParams.has("chunk")) {
       const body = JSON.stringify(payload);
       if (url.searchParams.get("meta") === "1") {
