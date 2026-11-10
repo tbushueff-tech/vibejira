@@ -115,11 +115,14 @@ export function createLibrary({ api, session, notify, copyText, onTabChange }) {
   async function storeEntry(entry, revision = 0) {
     const s = current();
     if (!s || busy) throw new Error("Сначала войдите в аккаунт");
+    const accountToken = s.token;
     busy = true;
     saveButton.disabled = true;
     try {
       const cipher = await encryptLibraryEntry(entry, s.key, revision);
+      if (current()?.token !== accountToken) throw new Error("Аккаунт сменился во время сохранения");
       const result = await api.saveLibraryItem(cipher);
+      if (current()?.token !== accountToken) throw new Error("Аккаунт сменился во время сохранения");
       const stored = { ...entry, revision: result.revision };
       const i = entries.findIndex(x => x.id === entry.id);
       if (i >= 0) entries[i] = stored;
