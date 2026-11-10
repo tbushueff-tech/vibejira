@@ -168,7 +168,12 @@ try {
   const keyText = await page.locator("#demo-key-output").inputValue();
   assert.ok(keyText.replace(/\s/g,"").includes("X02"), "demo output must include X02 format footer");
   assert.ok(keyText.length > 70, "demo output must contain a packed license payload");
-  assert.match(await page.locator("#demo-properties-output").textContent(), /DemoProduct=custom_plugin/);
+  const demoBody = await page.locator("#demo-properties-output").textContent();
+  assert.match(demoBody, /custom_plugin.active=true/);
+  assert.match(demoBody, /custom_plugin.enterprise=true/);
+  assert.match(demoBody, /keyVersion=1600708331/);
+  assert.match(demoBody, /licenseHash=[A-Za-z0-9+/=]+/);
+  assert.doesNotMatch(demoBody, /DemoProduct=/);
   assert.match(await page.locator("#demo-properties-output").textContent(), /ServerID=BLSA-YKF4-X270-D26O/);
   await page.locator("#tab-buffer").click();
   await page.locator("#list").getByText("Browser reload regression").waitFor();
