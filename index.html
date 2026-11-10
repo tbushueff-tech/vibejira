@@ -638,6 +638,24 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   .wrap, .composer, .grid, .card { min-width: 0; max-width: 100%; }
   .search { flex-basis: auto; }
 }
+
+/* Permanent code library: stays visually consistent with the original Jira toolbar. */
+.library-tabs { display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
+.library-tabs .nav-button { white-space:nowrap; }
+.library-tabs .nav-button[aria-selected="true"] { background:rgba(255,255,255,.2); color:#fff; }
+.library-panel { display:flex; flex-direction:column; gap:16px; }
+.library-panel .composer { padding:18px; }
+.library-panel .fields select {
+  width:100%; min-height:40px; padding:8px 12px; border:1px solid var(--line);
+  border-radius:var(--radius-sm); background:var(--surface); color:var(--fg); font:inherit;
+}
+.library-intro { color:var(--muted); font-size:13px; margin:0; }
+.library-meta { font-size:12px; color:var(--muted); }
+.library-code { white-space:pre-wrap; overflow-wrap:anywhere; }
+@media (max-width:720px) {
+  .library-tabs .nav-button { font-size:12px; min-height:32px; padding:0 8px; }
+  .library-tabs { margin-left:2px; }
+}
 </style>
 <style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style>
 </head>
@@ -693,6 +711,10 @@ header .brand, header .search, header .account-menu { min-width: 0; }
         </span>
       </div>
     </div>
+    <nav class="library-tabs" aria-label="Разделы Jira Helper">
+      <button type="button" class="nav-button active" id="tab-buffer" aria-selected="true">Буфер</button>
+      <button type="button" class="nav-button" id="tab-library" aria-selected="false">Библиотека</button>
+    </nav>
     <div class="nav-spacer"></div>
     <button type="button" class="search-toggle" id="search-toggle" aria-label="Открыть поиск" aria-expanded="false" aria-controls="search-box">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.7" cy="10.7" r="6.5"/><path d="m16 16 5 5"/></svg>
@@ -747,6 +769,42 @@ header .brand, header .search, header .account-menu { min-width: 0; }
 
   <div class="status"><span id="count"></span><span id="sync-status">Подключение к облаку…</span></div>
   <section class="grid" id="list" aria-label="Сохранённые тексты"></section>
+  <section class="library-panel" id="library-view" hidden aria-label="Библиотека кода">
+    <p class="library-intro">Постоянное зашифрованное хранение удачных фрагментов кода. Записи не удаляются через 7 дней.</p>
+    <form class="composer" id="library-form" autocomplete="off">
+      <h2 id="library-form-heading">Новый фрагмент кода</h2>
+      <div class="fields">
+        <div>
+          <label class="cap" for="library-title">Название</label>
+          <input type="text" id="library-title" maxlength="120" required placeholder="Например, REST обработчик Jira">
+        </div>
+        <div>
+          <label class="cap" for="library-language">Язык или тип кода</label>
+          <select id="library-language">
+            <option value="text">Текст / другое</option><option value="javascript">JavaScript</option>
+            <option value="groovy">Groovy</option><option value="python">Python</option>
+            <option value="sql">SQL</option><option value="java">Java</option>
+            <option value="json">JSON</option><option value="bash">Bash</option>
+            <option value="html">HTML / CSS</option><option value="typescript">TypeScript</option>
+            <option value="other">Другое</option>
+          </select>
+        </div>
+        <div>
+          <label class="cap" for="library-code">Код</label>
+          <textarea id="library-code" required placeholder="Вставьте проверенный код" spellcheck="false"></textarea>
+        </div>
+        <div>
+          <label class="cap" for="library-notes">Описание / заметки</label>
+          <textarea id="library-notes" rows="2" placeholder="Для чего нужен код, что важно помнить"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <button type="submit" class="primary" id="library-save">Сохранить в библиотеку</button>
+        <button type="button" id="library-cancel" hidden>Отменить редактирование</button>
+      </div>
+    </form>
+    <section class="grid" id="library-list" aria-label="Постоянные фрагменты кода"></section>
+  </section>
 </div>
 <div class="modal-backdrop" id="profile-modal" hidden>
   <form class="modal-card profile-card" id="profile-form" role="dialog" aria-modal="true" aria-labelledby="profile-title">
