@@ -100,7 +100,7 @@ export function propertiesForDemoProduct({
     // ThirdPlugin, including Capture, overrides setLicenseType.
     put("LicenseTypeName", "COMMERCIAL");
   } else put(prefix("LicenseTypeName"), "COMMERCIAL");
-  // Deliberately not the reference author's real activation-description.
+  put("Description", "License for " + cleaned(organisation));
   put("Evaluation", "false");
   put("ContactName", cleaned(name) || cleaned(email));
   put("ContactEMail", cleaned(email));
