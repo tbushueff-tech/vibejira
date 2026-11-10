@@ -360,7 +360,8 @@ function updateCount() {
   view.liveCount.textContent = text.length + " симв. · " + (text ? text.split(/\s+/).length : 0) + " слов";
 }
 function changeSearch(delta) {
-  const matches = [...view.list.querySelectorAll("mark")];
+  const scope = library.isActive() ? $("library-list") : view.list;
+  const matches = [...scope.querySelectorAll("mark")];
   if (!matches.length) return;
   state.currentSearch = (state.currentSearch + delta + matches.length) % matches.length;
   matches[state.currentSearch].scrollIntoView({ behavior: "smooth", block: "center" });
