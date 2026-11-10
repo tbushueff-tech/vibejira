@@ -782,7 +782,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   <section class="library-panel" id="demo-keygen-view" hidden aria-label="Генератор демонстрационных ключей Jira">
     <div class="composer">
       <h2>Генератор ключей Jira · DEMO</h2>
-      <p class="library-intro">Повторяет формат упаковки из atlassian-agent: zlib, SHA1withDSA, Base64 и окончание X02. Подписывает собственным случайным ключом — результат не является действующей лицензией Atlassian.</p>
+      <p class="library-intro">Повторяет формат упаковки из atlassian-agent: zlib, SHA1withDSA, Base64 и окончание X02. Подписывает постоянным собственным ключом DSA, упакованным в Java Encoder.java. Это публичный демонстрационный ключ, не лицензия Atlassian.</p>
       <form id="demo-keygen-form" autocomplete="off" class="fields">
         <div><label class="cap" for="demo-server-id">Server ID Jira</label><input type="text" id="demo-server-id" required placeholder="AAAA-BBBB-CCCC-DDDD"></div>
         <div><label class="cap" for="demo-email">Email владельца</label><input type="text" id="demo-email" required placeholder="team@example.com"></div>
