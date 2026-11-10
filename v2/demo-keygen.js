@@ -93,7 +93,7 @@ export function buildJiraDemoProperties({
   const today = padDate(now);
   const expiry = "2090-01-01"; // informational DEMO value only
   const sid = "L" + now.getTime();
-  const product = "jira.product.jira-software";
+  const jiraProduct = "jira.product.jira-software";
   const entries = [
     ["CreationDate", today], ["ContactName", name?.trim() || email.trim()],
     ["ContactEMail", email.trim()], ["ServerID", serverId.trim()],
@@ -105,8 +105,8 @@ export function buildJiraDemoProperties({
     ["Description", "DEMONSTRATION ONLY - NOT A VALID JIRA LICENSE"],
     ["Evaluation", "false"], ["LicenseTypeName", "COMMERCIAL"],
     ["jira.active", "true"], ["greenhopper.active", "true"],
-    [product + ".active", "true"], [product + ".Starter", "false"],
-    [product + ".NumberOfUsers", "-1"], ["jira.NumberOfUsers", "-1"],
+    [jiraProduct + ".active", "true"], [jiraProduct + ".Starter", "false"],
+    [jiraProduct + ".NumberOfUsers", "-1"], ["jira.NumberOfUsers", "-1"],
     ["NumberOfUsers", "-1"], ["jira.LicenseEdition", "UNLIMITED"],
     ["greenhopper.LicenseEdition", "UNLIMITED"],
     ["greenhopper.enterprise", "true"]
