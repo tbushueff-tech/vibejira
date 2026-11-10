@@ -1,10 +1,12 @@
-// Demonstration encoder based on the packing steps in hgqapp/atlassian-agent.
-// Uses independently generated DSA domain parameters and an ephemeral private
-// signing scalar. No upstream private key, Java Agent or license patching code.
-// Output looks like the repo format, but DOES NOT activate Atlassian software.
-const P = BigInt("0xe94f1c4c6b21e179b7f8fead651b4b6a0cd9a7f981e9b6ad00f7c7287535f12b26396051c17f88fca8d1770c58ddc90fb923fa0da32e1f8ab963b8ca4a3bfbe59d5e538ec1ba3b32da06d9185c14c139d1d4dd793ea81b41cf10554fcd2ebf1b3b6c89fea88c5814908fb341e8a7b0883a69c1198e552b3b60f4aaab249bc0f9");
-const Q = BigInt("0xe5ca74248dd9f455580aecd5e43540705e38b993");
-const G = BigInt("0x9870f143bd04841f876ec646672d930fec9d04923db9313013f0bbc59e7727643dc34b81a5956dfd7a78f84c00281240fec97734c277edc0914a75c9aef03889b042e11c453b5b49eaa4ded5d87b5f9f9c56260d979bd2bb428aaff5bcd717f9786e6e97c64b8c1e25e7905b7b299b31b125c6e65c2a78702318b2ed837003fb");
+import { DEMO_DSA } from "./demo-dsa-key.js";
+
+// Original agent-style packaging with a NEW, fixed Jira Helper DSA keypair.
+// Corresponds to the PKCS#8 constant in v2/java/.../Encoder.java.
+// Public and intentionally non-Atlassian; only for DEMO signatures.
+const P = BigInt(DEMO_DSA.p);
+const Q = BigInt(DEMO_DSA.q);
+const G = BigInt(DEMO_DSA.g);
+const PRIVATE_SCALAR = BigInt(DEMO_DSA.x);
 const encoder = new TextEncoder();
 
 function bigintFromBytes(bytes) {
@@ -42,7 +44,7 @@ function dsaDerSignature(r, s) {
   return Uint8Array.of(0x30, left.length + right.length, ...left, ...right);
 }
 async function demoDsaSign(message) {
-  const secret = randomScalar(); // never stored or transmitted
+  const secret = PRIVATE_SCALAR; // fixed demo-only private scalar (publicly visible)
   const hash = bigintFromBytes(new Uint8Array(await crypto.subtle.digest("SHA-1", message)));
   for (;;) {
     const k = randomScalar();
@@ -121,5 +123,5 @@ export async function generateJiraDemoKey(fields) {
   const full = encoded + "X02" + formatBase31(encoded.length);
   // Match Encoder.split(): insert newline after index 76, 152, ...
   const result = [...full].map((char,i) => char + (i > 0 && i % 76 === 0 ? "\n" : "")).join("");
-  return { key: result, properties, format: "Atlassian Agent-shaped DEMO (incompatible signature)" };
+  return { key: result, properties, format: "Atlassian Agent-shaped DEMO (fixed own DSA key; not an Atlassian license)" };
 }
