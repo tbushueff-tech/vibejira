@@ -18,7 +18,7 @@ const plain = (tag, cls, text) => {
 };
 const firstMatch = (text, fallback = "text") => LANGS.find(([, pattern]) => pattern.test(text))?.[0] || fallback;
 
-export function createLibrary({ api, session, notify, copyText }) {
+export function createLibrary({ api, session, notify, copyText, onTabChange }) {
   const tabBuffer = $("tab-buffer");
   const tabLibrary = $("tab-library");
   const panel = $("library-view");
@@ -68,6 +68,7 @@ export function createLibrary({ api, session, notify, copyText }) {
       render();
       if (!loadedFor && !loading) refresh();
     }
+    onTabChange?.();
   }
   function isActive() { return page === "library"; }
   function setSearch(text) { search = text.toLocaleLowerCase(); if (isActive()) render(); }
@@ -266,9 +267,9 @@ export function createLibrary({ api, session, notify, copyText }) {
     } catch (error) { notify("Ошибка сохранения: " + error.message); }
   }
 
-  tabBuffer.addEventListener("click", () => { switchTo("buffer"); $("search").value = ""; search = ""; });
+  tabBuffer.addEventListener("click", () => { $("search").value = ""; search = ""; switchTo("buffer"); });
   tabLibrary.addEventListener("click", () => {
-    switchTo("library"); $("search").value = ""; search = ""; render();
+    $("search").value = ""; search = ""; switchTo("library");
   });
   form.addEventListener("submit", onSubmit);
   cancelButton.addEventListener("click", cancelEdit);
