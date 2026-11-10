@@ -58,7 +58,8 @@ try {
   assert.deepEqual(javaEnvelope.content.subarray(0, 5),
     browserEnvelope.content.subarray(0, 5));
   assert.equal(javaEnvelope.properties,browserEnvelope.properties);
-  console.log("Java and JS independently encode the same DEMO properties, share container fields, and verify against our own DSA public key");
+  console.log("Java and JS encode the same properties, share container fields, and verify against the published reference DSA public key");
 } finally {
   rmSync(folder,{recursive:true,force:true});
 }
+

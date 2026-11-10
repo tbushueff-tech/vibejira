@@ -33,10 +33,10 @@ export function setupDemoKeygen({ copyText, notify, library, state }) {
     try {
       const fields = {
         serverId: "BLSA-YKF4-X270-D26O", // Fixed for this demo form; intentionally not user-editable.
-        email: $("demo-email").value.trim(),
-        organisation: $("demo-organisation").value.trim(),
-        product: $("demo-product").value.trim(),
-        name: $("demo-name").value.trim(),
+        email: $("demo-email").value,
+        organisation: $("demo-organisation").value,
+        product: $("demo-product").value,
+        name: $("demo-name").value === "" ? undefined : $("demo-name").value,
         datacenter: $("demo-datacenter").checked
       };
       const generated = await generateJiraDemoKey(fields);
@@ -55,3 +55,4 @@ export function setupDemoKeygen({ copyText, notify, library, state }) {
   });
   return { hide, isActive: () => active };
 }
+

@@ -1,11 +1,9 @@
 import { readDemoDsaPrivateKey } from "./demo-private-key.js";
 import { buildReferenceDemoProperties } from "./demo-reference-properties.js";
+import { javaUtf8 } from "./java-utf8.js";
 
-// Original agent-style packaging with a NEW, fixed Jira Helper DSA keypair.
-// Corresponds to the PKCS#8 constant in v2/java/.../Encoder.java.
-// Public and intentionally non-Atlassian; only for DEMO signatures.
+// Reference packaging and the same published PKCS#8 key as its Encoder.java.
 const { p: P, q: Q, g: G, x: PRIVATE_SCALAR } = readDemoDsaPrivateKey();
-const encoder = new TextEncoder();
 
 function bigintFromBytes(bytes) {
   return bytes.reduce((value, byte) => (value << 8n) + BigInt(byte), 0n);
@@ -42,7 +40,7 @@ function dsaDerSignature(r, s) {
   return Uint8Array.of(0x30, left.length + right.length, ...left, ...right);
 }
 async function demoDsaSign(message) {
-  const secret = PRIVATE_SCALAR; // fixed demo-only private scalar (publicly visible)
+  const secret = PRIVATE_SCALAR;
   const hash = bigintFromBytes(new Uint8Array(await crypto.subtle.digest("SHA-1", message)));
   for (;;) {
     const k = randomScalar();
@@ -80,13 +78,13 @@ async function zlibCompress(bytes) {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 // Reference: the text body also contains a licenseHash signed under the
-// SAME independent, publicly known demo key used by the outer envelope.
+// SAME published reference key used by the outer envelope.
 export async function buildJiraDemoProperties(fields) {
   return buildReferenceDemoProperties(fields, demoDsaSign);
 }
 export async function generateJiraDemoKey(fields) {
   const properties = await buildJiraDemoProperties(fields);
-  const compressed = await zlibCompress(encoder.encode(properties));
+  const compressed = await zlibCompress(javaUtf8(properties));
   const payload = concat(Uint8Array.of(13,14,12,10,15), compressed);
   const signature = await demoDsaSign(payload);
   const len = new Uint8Array(4);
@@ -95,5 +93,6 @@ export async function generateJiraDemoKey(fields) {
   const full = encoded + "X02" + formatBase31(encoded.length);
   // Match Encoder.split(): insert newline after index 76, 152, ...
   const result = [...full].map((char,i) => char + (i > 0 && i % 76 === 0 ? "\n" : "")).join("");
-  return { key: result, properties, format: "Atlassian Agent-shaped DEMO (fixed own DSA key; not an Atlassian license)" };
+  return { key: result, properties, format: "Atlassian-Agent v1.3.1 format (published reference DSA key)" };
 }
+

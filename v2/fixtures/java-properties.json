@@ -11,6 +11,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": false
       },
@@ -25,6 +26,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -39,6 +41,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jc",
         "datacenter": false
       },
@@ -53,6 +56,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jc",
         "datacenter": true
       },
@@ -67,6 +71,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jsd",
         "datacenter": false
       },
@@ -81,6 +86,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jsd",
         "datacenter": true
       },
@@ -95,6 +101,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jsm",
         "datacenter": false
       },
@@ -109,6 +116,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jsm",
         "datacenter": true
       },
@@ -123,6 +131,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "conf",
         "datacenter": false
       },
@@ -137,6 +146,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "conf",
         "datacenter": true
       },
@@ -151,6 +161,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "questions",
         "datacenter": false
       },
@@ -165,6 +176,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "questions",
         "datacenter": true
       },
@@ -179,6 +191,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "tc",
         "datacenter": false
       },
@@ -193,6 +206,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "tc",
         "datacenter": true
       },
@@ -207,6 +221,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "bamboo",
         "datacenter": false
       },
@@ -221,6 +236,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "bamboo",
         "datacenter": true
       },
@@ -235,6 +251,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "bitbucket",
         "datacenter": false
       },
@@ -249,6 +266,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "bitbucket",
         "datacenter": true
       },
@@ -263,6 +281,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "fisheye",
         "datacenter": false
       },
@@ -277,6 +296,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "fisheye",
         "datacenter": true
       },
@@ -291,6 +311,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "crucible",
         "datacenter": false
       },
@@ -305,6 +326,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "crucible",
         "datacenter": true
       },
@@ -319,6 +341,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "crowd",
         "datacenter": false
       },
@@ -333,6 +356,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "crowd",
         "datacenter": true
       },
@@ -347,6 +371,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "capture",
         "datacenter": false
       },
@@ -361,6 +386,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "capture",
         "datacenter": true
       },
@@ -375,6 +401,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "training",
         "datacenter": false
       },
@@ -389,6 +416,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "training",
         "datacenter": true
       },
@@ -403,6 +431,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "portfolio",
         "datacenter": false
       },
@@ -417,6 +446,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "portfolio",
         "datacenter": true
       },
@@ -431,6 +461,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "com.example.demo",
         "datacenter": false
       },
@@ -445,6 +476,7 @@
         "name": "Demo",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "com.example.demo",
         "datacenter": true
       },
@@ -459,6 +491,7 @@
         "name": "Demo",
         "now": "2026-01-15T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -473,6 +506,7 @@
         "name": "Demo",
         "now": "2026-07-15T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -487,6 +521,7 @@
         "name": "Demo",
         "now": "2026-01-15T23:30:00.000Z",
         "timeZone": "Asia/Yekaterinburg",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -501,6 +536,7 @@
         "name": "Demo",
         "now": "2026-07-15T23:30:00.000Z",
         "timeZone": "Asia/Yekaterinburg",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -515,6 +551,7 @@
         "name": "Demo",
         "now": "2026-01-15T23:30:00.000Z",
         "timeZone": "America/Los_Angeles",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -529,6 +566,7 @@
         "name": "Demo",
         "now": "2026-07-15T23:30:00.000Z",
         "timeZone": "America/Los_Angeles",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -543,6 +581,7 @@
         "name": "Demo",
         "now": "2026-01-15T23:30:00.000Z",
         "timeZone": "Asia/Tokyo",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -557,6 +596,7 @@
         "name": "Demo",
         "now": "2026-07-15T23:30:00.000Z",
         "timeZone": "Asia/Tokyo",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -571,6 +611,7 @@
         "name": "Demo",
         "now": "2026-01-15T23:30:00.000Z",
         "timeZone": "Pacific/Kiritimati",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -585,6 +626,7 @@
         "name": "Demo",
         "now": "2026-07-15T23:30:00.000Z",
         "timeZone": "Pacific/Kiritimati",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -599,6 +641,7 @@
         "name": "Demo",
         "now": "2026-01-15T23:30:00.000Z",
         "timeZone": "Europe/Berlin",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -613,6 +656,7 @@
         "name": "Demo",
         "now": "2026-07-15T23:30:00.000Z",
         "timeZone": "Europe/Berlin",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -627,6 +671,7 @@
         "name": "Demo",
         "now": "2026-01-15T23:30:00.000Z",
         "timeZone": "Australia/Sydney",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -641,6 +686,7 @@
         "name": "Demo",
         "now": "2026-07-15T23:30:00.000Z",
         "timeZone": "Australia/Sydney",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -655,6 +701,7 @@
         "name": "Demo",
         "now": "2026-01-15T23:30:00.000Z",
         "timeZone": "Asia/Kolkata",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -669,6 +716,7 @@
         "name": "Demo",
         "now": "2026-07-15T23:30:00.000Z",
         "timeZone": "Asia/Kolkata",
+        "locale": "en-US",
         "product": "jira",
         "datacenter": true
       },
@@ -683,11 +731,118 @@
         "name": " A\\B\tКириллица 😀\nline\r\f",
         "now": "2026-11-10T23:30:00.000Z",
         "timeZone": "UTC",
+        "locale": "en-US",
         "product": "com.example.demo",
         "datacenter": true
       },
       "body": "#Tue Nov 10 23:30:00 UTC 2026\nCreationDate=2026-11-10\nLicenseTypeName=COMMERCIAL\nEvaluation=false\ncom.example.demo.active=true\nDescription=Unlimited license by https://zhile.io\ncom.example.demo.Starter=false\nOrganisation=Example\nContactEMail=demo@example.org\nlicenseHash=AQID\nMaintenanceExpiryDate=2089-07-07\nServerID=DEMO-123\nkeyVersion=1600708331\nNumberOfUsers=-1\nLicenseExpiryDate=2089-07-07\nPurchaseDate=2026-11-10\nlicenseVersion=2\ncom.example.demo.enterprise=true\nSubscription=true\nSEN=SEN-L1794353400000\nContactName= A\\B\tКириллица 😀\nline\r\f\ncom.example.demo.DataCenter=true",
       "hashSource": "ContactEMail=demo@example.org\nContactName=\\ A\\\\B\\tКириллица 😀\\nline\\r\\f\nCreationDate=2026-11-10\nDescription=Unlimited license by https\\://zhile.io\nEvaluation=false\nLicenseExpiryDate=2089-07-07\nLicenseTypeName=COMMERCIAL\nMaintenanceExpiryDate=2089-07-07\nNumberOfUsers=-1\nOrganisation=Example\nPurchaseDate=2026-11-10\nSEN=SEN-L1794353400000\nServerID=DEMO-123\nSubscription=true\ncom.example.demo.DataCenter=true\ncom.example.demo.Starter=false\ncom.example.demo.active=true\ncom.example.demo.enterprise=true\nkeyVersion=1600708331\nlicenseVersion=2\n"
+    },
+    {
+      "fields": {
+        "serverId": "DEMO-123",
+        "email": "demo@example.org",
+        "organisation": "Example",
+        "name": "",
+        "now": "2026-11-10T23:30:00.000Z",
+        "timeZone": "UTC",
+        "locale": "en-US",
+        "product": "jira",
+        "datacenter": false
+      },
+      "body": "#Tue Nov 10 23:30:00 UTC 2026\ngreenhopper.LicenseTypeName=COMMERCIAL\nCreationDate=2026-11-10\nLicenseTypeName=COMMERCIAL\nDescription=Unlimited license by https://zhile.io\nMaintenanceExpiryDate=2089-07-07\njira.LicenseEdition=UNLIMITED\nNumberOfUsers=-1\nLicenseExpiryDate=2089-07-07\njira.product.jira-software.NumberOfUsers=-1\njira.product.jira-software.active=true\ngreenhopper.active=true\nlicenseVersion=2\nEvaluation=false\nOrganisation=Example\nContactEMail=demo@example.org\njira.NumberOfUsers=-1\nlicenseHash=AQID\njira.active=true\njira.product.jira-software.Starter=false\nLicenseID=LIDSEN-L1794353400000\njira.LicenseTypeName=COMMERCIAL\nServerID=DEMO-123\nkeyVersion=1600708331\ngreenhopper.LicenseEdition=UNLIMITED\nPurchaseDate=2026-11-10\ngreenhopper.enterprise=true\nSEN=SEN-L1794353400000\nContactName=",
+      "hashSource": "ContactEMail=demo@example.org\nContactName=\nCreationDate=2026-11-10\nDescription=Unlimited license by https\\://zhile.io\nEvaluation=false\nLicenseExpiryDate=2089-07-07\nLicenseID=LIDSEN-L1794353400000\nLicenseTypeName=COMMERCIAL\nMaintenanceExpiryDate=2089-07-07\nNumberOfUsers=-1\nOrganisation=Example\nPurchaseDate=2026-11-10\nSEN=SEN-L1794353400000\nServerID=DEMO-123\ngreenhopper.LicenseEdition=UNLIMITED\ngreenhopper.LicenseTypeName=COMMERCIAL\ngreenhopper.active=true\ngreenhopper.enterprise=true\njira.LicenseEdition=UNLIMITED\njira.LicenseTypeName=COMMERCIAL\njira.NumberOfUsers=-1\njira.active=true\njira.product.jira-software.NumberOfUsers=-1\njira.product.jira-software.Starter=false\njira.product.jira-software.active=true\nkeyVersion=1600708331\nlicenseVersion=2\n"
+    },
+    {
+      "fields": {
+        "serverId": "DEMO-123",
+        "email": "demo@example.org",
+        "organisation": "Example",
+        "name": "Demo",
+        "now": "2026-11-10T23:30:00.000Z",
+        "timeZone": "UTC",
+        "locale": "en-US",
+        "product": "jira",
+        "datacenter": true,
+        "idNow": "2026-11-11T00:00:00.123Z"
+      },
+      "body": "#Tue Nov 10 23:30:00 UTC 2026\ngreenhopper.LicenseTypeName=COMMERCIAL\nCreationDate=2026-11-10\nLicenseTypeName=COMMERCIAL\nDescription=Unlimited license by https://zhile.io\nMaintenanceExpiryDate=2089-07-07\njira.LicenseEdition=UNLIMITED\nNumberOfUsers=-1\nLicenseExpiryDate=2089-07-07\njira.product.jira-software.NumberOfUsers=-1\njira.product.jira-software.active=true\ngreenhopper.active=true\njira.product.jira-software.DataCenter=true\nlicenseVersion=2\nSubscription=true\nEvaluation=false\njira.DataCenter=true\nOrganisation=Example\nContactEMail=demo@example.org\njira.NumberOfUsers=-1\nlicenseHash=AQID\njira.active=true\njira.product.jira-software.Starter=false\nLicenseID=LIDSEN-L1794355200123\njira.LicenseTypeName=COMMERCIAL\nServerID=DEMO-123\nkeyVersion=1600708331\ngreenhopper.LicenseEdition=UNLIMITED\nPurchaseDate=2026-11-10\ngreenhopper.enterprise=true\nSEN=SEN-L1794355200123\nContactName=Demo",
+      "hashSource": "ContactEMail=demo@example.org\nContactName=Demo\nCreationDate=2026-11-10\nDescription=Unlimited license by https\\://zhile.io\nEvaluation=false\nLicenseExpiryDate=2089-07-07\nLicenseID=LIDSEN-L1794355200123\nLicenseTypeName=COMMERCIAL\nMaintenanceExpiryDate=2089-07-07\nNumberOfUsers=-1\nOrganisation=Example\nPurchaseDate=2026-11-10\nSEN=SEN-L1794355200123\nServerID=DEMO-123\nSubscription=true\ngreenhopper.LicenseEdition=UNLIMITED\ngreenhopper.LicenseTypeName=COMMERCIAL\ngreenhopper.active=true\ngreenhopper.enterprise=true\njira.DataCenter=true\njira.LicenseEdition=UNLIMITED\njira.LicenseTypeName=COMMERCIAL\njira.NumberOfUsers=-1\njira.active=true\njira.product.jira-software.DataCenter=true\njira.product.jira-software.NumberOfUsers=-1\njira.product.jira-software.Starter=false\njira.product.jira-software.active=true\nkeyVersion=1600708331\nlicenseVersion=2\n"
+    },
+    {
+      "fields": {
+        "serverId": "DEMO-123",
+        "email": "demo@example.org",
+        "organisation": "Example",
+        "name": "Demo",
+        "now": "2026-11-10T23:30:00.000Z",
+        "timeZone": "UTC",
+        "locale": "en-US",
+        "product": "",
+        "datacenter": true
+      },
+      "body": "#Tue Nov 10 23:30:00 UTC 2026\nCreationDate=2026-11-10\nLicenseTypeName=COMMERCIAL\nEvaluation=false\nDescription=Unlimited license by https://zhile.io\nOrganisation=Example\n.DataCenter=true\nContactEMail=demo@example.org\nlicenseHash=AQID\nMaintenanceExpiryDate=2089-07-07\n.enterprise=true\nServerID=DEMO-123\nkeyVersion=1600708331\nNumberOfUsers=-1\nLicenseExpiryDate=2089-07-07\nPurchaseDate=2026-11-10\n.Starter=false\n.active=true\nlicenseVersion=2\nSubscription=true\nSEN=SEN-L1794353400000\nContactName=Demo",
+      "hashSource": ".DataCenter=true\n.Starter=false\n.active=true\n.enterprise=true\nContactEMail=demo@example.org\nContactName=Demo\nCreationDate=2026-11-10\nDescription=Unlimited license by https\\://zhile.io\nEvaluation=false\nLicenseExpiryDate=2089-07-07\nLicenseTypeName=COMMERCIAL\nMaintenanceExpiryDate=2089-07-07\nNumberOfUsers=-1\nOrganisation=Example\nPurchaseDate=2026-11-10\nSEN=SEN-L1794353400000\nServerID=DEMO-123\nSubscription=true\nkeyVersion=1600708331\nlicenseVersion=2\n"
+    },
+    {
+      "fields": {
+        "serverId": "DEMO-123",
+        "email": "demo@example.org",
+        "organisation": "Example",
+        "name": "Demo",
+        "now": "2026-11-10T23:30:00.000Z",
+        "timeZone": "UTC",
+        "locale": "en-US",
+        "product": " custom plugin ",
+        "datacenter": true
+      },
+      "body": "#Tue Nov 10 23:30:00 UTC 2026\nCreationDate=2026-11-10\nLicenseTypeName=COMMERCIAL\nEvaluation=false\nDescription=Unlimited license by https://zhile.io\nOrganisation=Example\n custom plugin .Starter=false\nContactEMail=demo@example.org\nlicenseHash=AQID\n custom plugin .enterprise=true\nMaintenanceExpiryDate=2089-07-07\n custom plugin .DataCenter=true\n custom plugin .active=true\nServerID=DEMO-123\nkeyVersion=1600708331\nNumberOfUsers=-1\nLicenseExpiryDate=2089-07-07\nPurchaseDate=2026-11-10\nlicenseVersion=2\nSubscription=true\nSEN=SEN-L1794353400000\nContactName=Demo",
+      "hashSource": "\\ custom\\ plugin\\ .DataCenter=true\n\\ custom\\ plugin\\ .Starter=false\n\\ custom\\ plugin\\ .active=true\n\\ custom\\ plugin\\ .enterprise=true\nContactEMail=demo@example.org\nContactName=Demo\nCreationDate=2026-11-10\nDescription=Unlimited license by https\\://zhile.io\nEvaluation=false\nLicenseExpiryDate=2089-07-07\nLicenseTypeName=COMMERCIAL\nMaintenanceExpiryDate=2089-07-07\nNumberOfUsers=-1\nOrganisation=Example\nPurchaseDate=2026-11-10\nSEN=SEN-L1794353400000\nServerID=DEMO-123\nSubscription=true\nkeyVersion=1600708331\nlicenseVersion=2\n"
+    },
+    {
+      "fields": {
+        "serverId": "DEMO-123",
+        "email": "demo@example.org",
+        "organisation": "Example",
+        "name": "Demo",
+        "now": "2026-11-10T23:30:00.000Z",
+        "timeZone": "UTC",
+        "locale": "en-US",
+        "product": "com.example.😀",
+        "datacenter": true
+      },
+      "body": "#Tue Nov 10 23:30:00 UTC 2026\nCreationDate=2026-11-10\nLicenseTypeName=COMMERCIAL\nEvaluation=false\nDescription=Unlimited license by https://zhile.io\nOrganisation=Example\nContactEMail=demo@example.org\nlicenseHash=AQID\ncom.example.😀.active=true\nMaintenanceExpiryDate=2089-07-07\ncom.example.😀.Starter=false\nServerID=DEMO-123\ncom.example.😀.DataCenter=true\nkeyVersion=1600708331\nNumberOfUsers=-1\nLicenseExpiryDate=2089-07-07\nPurchaseDate=2026-11-10\nlicenseVersion=2\nSubscription=true\nSEN=SEN-L1794353400000\nContactName=Demo\ncom.example.😀.enterprise=true",
+      "hashSource": "ContactEMail=demo@example.org\nContactName=Demo\nCreationDate=2026-11-10\nDescription=Unlimited license by https\\://zhile.io\nEvaluation=false\nLicenseExpiryDate=2089-07-07\nLicenseTypeName=COMMERCIAL\nMaintenanceExpiryDate=2089-07-07\nNumberOfUsers=-1\nOrganisation=Example\nPurchaseDate=2026-11-10\nSEN=SEN-L1794353400000\nServerID=DEMO-123\nSubscription=true\ncom.example.😀.DataCenter=true\ncom.example.😀.Starter=false\ncom.example.😀.active=true\ncom.example.😀.enterprise=true\nkeyVersion=1600708331\nlicenseVersion=2\n"
+    },
+    {
+      "fields": {
+        "serverId": "DEMO-123",
+        "email": "demo@example.org",
+        "organisation": "Example",
+        "name": "Demo",
+        "now": "2026-11-10T23:30:00.000Z",
+        "timeZone": "UTC",
+        "locale": "en-US",
+        "product": "custom\nproperty",
+        "datacenter": true
+      },
+      "body": "#Tue Nov 10 23:30:00 UTC 2026\ncustom\nproperty.active=true\nCreationDate=2026-11-10\nLicenseTypeName=COMMERCIAL\nEvaluation=false\nDescription=Unlimited license by https://zhile.io\nOrganisation=Example\nContactEMail=demo@example.org\nlicenseHash=AQID\ncustom\nproperty.Starter=false\nMaintenanceExpiryDate=2089-07-07\nServerID=DEMO-123\nkeyVersion=1600708331\nNumberOfUsers=-1\nLicenseExpiryDate=2089-07-07\nPurchaseDate=2026-11-10\nlicenseVersion=2\ncustom\nproperty.DataCenter=true\nSubscription=true\ncustom\nproperty.enterprise=true\nSEN=SEN-L1794353400000\nContactName=Demo",
+      "hashSource": "ContactEMail=demo@example.org\nContactName=Demo\nCreationDate=2026-11-10\nDescription=Unlimited license by https\\://zhile.io\nEvaluation=false\nLicenseExpiryDate=2089-07-07\nLicenseTypeName=COMMERCIAL\nMaintenanceExpiryDate=2089-07-07\nNumberOfUsers=-1\nOrganisation=Example\nPurchaseDate=2026-11-10\nSEN=SEN-L1794353400000\nServerID=DEMO-123\nSubscription=true\ncustom\\nproperty.DataCenter=true\ncustom\\nproperty.Starter=false\ncustom\\nproperty.active=true\ncustom\\nproperty.enterprise=true\nkeyVersion=1600708331\nlicenseVersion=2\n"
+    },
+    {
+      "fields": {
+        "serverId": "DEMO-123",
+        "email": "demo@example.org",
+        "organisation": "Example",
+        "name": "Demo",
+        "now": "2026-11-10T23:30:00.000Z",
+        "timeZone": "UTC",
+        "locale": "en-US",
+        "product": "__proto__",
+        "datacenter": true
+      },
+      "body": "#Tue Nov 10 23:30:00 UTC 2026\nCreationDate=2026-11-10\nLicenseTypeName=COMMERCIAL\nEvaluation=false\nDescription=Unlimited license by https://zhile.io\n__proto__.DataCenter=true\nOrganisation=Example\n__proto__.enterprise=true\nContactEMail=demo@example.org\nlicenseHash=AQID\n__proto__.Starter=false\nMaintenanceExpiryDate=2089-07-07\nServerID=DEMO-123\nkeyVersion=1600708331\nNumberOfUsers=-1\nLicenseExpiryDate=2089-07-07\nPurchaseDate=2026-11-10\nlicenseVersion=2\nSubscription=true\n__proto__.active=true\nSEN=SEN-L1794353400000\nContactName=Demo",
+      "hashSource": "ContactEMail=demo@example.org\nContactName=Demo\nCreationDate=2026-11-10\nDescription=Unlimited license by https\\://zhile.io\nEvaluation=false\nLicenseExpiryDate=2089-07-07\nLicenseTypeName=COMMERCIAL\nMaintenanceExpiryDate=2089-07-07\nNumberOfUsers=-1\nOrganisation=Example\nPurchaseDate=2026-11-10\nSEN=SEN-L1794353400000\nServerID=DEMO-123\nSubscription=true\n__proto__.DataCenter=true\n__proto__.Starter=false\n__proto__.active=true\n__proto__.enterprise=true\nkeyVersion=1600708331\nlicenseVersion=2\n"
     }
   ]
 }

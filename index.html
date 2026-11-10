@@ -782,11 +782,11 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   <section class="library-panel" id="demo-keygen-view" hidden aria-label="Генератор демонстрационных ключей Jira">
     <div class="composer">
       <h2>Генератор ключей Jira · DEMO</h2>
-      <p class="library-intro">Воспроизводит модель свойств и упаковку atlassian-agent: выбор продукта, внутренний licenseHash, внешняя подпись SHA1withDSA, zlib, Base64 и X02. Используется собственная публичная демонстрационная DSA-пара, не лицензия Atlassian.</p>
+      <p class="library-intro">Формат Atlassian-Agent v1.3.1: свойства продукта, внутренний licenseHash, подпись SHA1withDSA, zlib, Base64 и X02. Используется опубликованный ключ оригинального Encoder. Генерация выполняется локально.</p>
       <form id="demo-keygen-form" autocomplete="off" class="fields">
         <div><label class="cap" for="demo-email">Mail</label><input type="email" id="demo-email" required placeholder="team@example.com" autocomplete="email"></div>
         <div><label class="cap" for="demo-organisation">Organisation</label><input type="text" id="demo-organisation" required placeholder="Название организации"></div>
-        <div><label class="cap" for="demo-product">Product</label><input type="text" id="demo-product" required maxlength="120" placeholder="Ключ приложения или плагина" spellcheck="false"></div>
+        <div><label class="cap" for="demo-product">Product</label><input type="text" id="demo-product" required placeholder="Ключ приложения или плагина" spellcheck="false"></div>
         <div><label class="cap" for="demo-name">Контактное лицо (необязательно)</label><input type="text" id="demo-name" placeholder="Имя владельца"></div>
         <label class="row"><input type="checkbox" id="demo-datacenter"> Data Center</label>
         <div class="row"><button type="submit" class="primary" id="demo-generate">Сгенерировать демонстрационный ключ</button></div>
@@ -883,3 +883,4 @@ header .brand, header .search, header .account-menu { min-width: 0; }
 
 </body>
 </html>
+

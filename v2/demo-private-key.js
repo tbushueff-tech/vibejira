@@ -1,5 +1,5 @@
-// Jira Helper's existing demo PKCS#8 DSA private key.
-// This value matches Encoder.java's PRIVATE_KEY_STR and is publicly visible.
+// Published PKCS#8 DSA key from the pinned Atlassian-Agent Encoder.java.
+// This same value was already present in Jira Helper; see reference-key.json.
 // DEMO ONLY: do not use for production security or actual licensing.
 export const PRIVATE_KEY_STR = "MIIBSwIBADCCASwGByqGSM44BAEwggEfAoGBAP1/U4EddRIpUt9KnC7s5Of2EbdSPO9EAMMeP4C2USZpRV1AIlH7WT2NWPq/xfW6MPbLm1Vs14E7gB00b/JmYLdrmVClpJ+f6AR7ECLCT7up1/63xhv4O1fnxqimFQ8E+4P208UewwI1VBNaFpEy9nXzrith1yrv8iIDGZ3RSAHHAhUAl2BQjxUjC8yykrmCouuEC/BYHPUCgYEA9+GghdabPd7LvKtcNrhXuXmUr7v6OuqC+VdMCz0HgmdRWVeOutRZT+ZxBxCBgLRJFnEj6EwoFhO3zwkyjMim4TwWeotUfI0o4KOuHiuzpnWRbqN/C/ohNWLx+2J6ASQ7zKTxvqhRkImog9/hWuWfBpKLZl6Ae1UlZAFMO/7PSSoEFgIUNYsbkapILzW8VhfGrU4eHo6/Dqw=";
 // Small, strict DER reader for the fixed PKCS#8 DSA format. No new keypair is
@@ -55,3 +55,4 @@ export function readDemoDsaPrivateKey(base64 = PRIVATE_KEY_STR) {
     throw new Error("Invalid DSA private parameters");
   return { p: p.value, q: q.value, g: g.value, x: x.value };
 }
+

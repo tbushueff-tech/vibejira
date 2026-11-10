@@ -34,7 +34,7 @@ test("demo generator uses agent-format zlib, prefix, DSA DER, base64 and X02/bas
   assert.match(info.decoded, /jira.DataCenter=true/);
   assert.match(info.decoded, /^Description=Unlimited license by https:\/\/zhile\.io$/m);
   assert.ok(info.sig.length >= 40 && info.sig.length <= 48);
-  assert.match(generated.format, /DEMO/);
+  assert.match(generated.format, /Atlassian-Agent v1.3.1/);
 });
 test("same fixed DSA key produces distinct valid signatures from random nonces", async() => {
   const a = inspect((await generateJiraDemoKey(fields)).key);
@@ -42,7 +42,7 @@ test("same fixed DSA key produces distinct valid signatures from random nonces",
   assert.notDeepEqual(a.sig,b.sig);
 });
 test("generator validates required metadata", async() => {
-  await assert.rejects(() => buildJiraDemoProperties({ serverId:"",email:"",organisation:"" }),/Server ID/);
+  await assert.rejects(() => buildJiraDemoProperties({}),/Server ID/);
 });
 
 test("every browser-generated signature verifies against the fixed public DSA key", async () => {
@@ -75,10 +75,10 @@ test("editable demo plugin Product, Server ID, Mail and Organisation are in the 
   assert.match(decoded, /test_test\.DataCenter=true/);
   const server = await buildJiraDemoProperties({ ...fields, datacenter: false });
   assert.doesNotMatch(server, /test_test\.DataCenter=true/);
-  await assert.rejects(() => buildJiraDemoProperties({ ...fields, product: "invalid\nproperty" }), /Product:/);
+  assert.match(await buildJiraDemoProperties({ ...fields, product: "custom plugin" }), /custom plugin\.active=true/);
 });
 
-test("inner licenseHash and outer envelope both verify with OUR own DSA public key", async () => {
+test("inner licenseHash and outer envelope both verify with the reference DSA public key", async () => {
   const publicKey = createPublicKey(createPrivateKey({key: Buffer.from(PRIVATE_KEY_STR,"base64"), format:"der",type:"pkcs8"}));
   const fixed = {...fields, product:"test_test", now:new Date("2026-11-10T11:20:05Z")};
   const original = propertiesForDemoProduct(fixed);

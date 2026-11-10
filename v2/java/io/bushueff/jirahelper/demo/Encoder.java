@@ -16,7 +16,7 @@ import java.util.zip.DeflaterInputStream;
 /**
  * Demonstration format encoder analogous to Atlassian-Agent's Encoder.java.
  *
- * PRIVATE_KEY_STR contains a newly generated, Jira Helper-specific DSA
+ * PRIVATE_KEY_STR matches the published Atlassian-Agent reference
  * PKCS#8 key. It is deliberately PUBLIC: DO NOT use for real licenses,
  * authentication or security. These signatures are NOT Atlassian licenses.
  *
@@ -101,3 +101,4 @@ public final class Encoder {
         System.out.println(encode(text));
     }
 }
+

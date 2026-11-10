@@ -1,9 +1,7 @@
-// Demonstration-only transcription of Atlassian-Agent LicenseProperty semantics.
-// Uses Jira Helper's own publicly embedded DSA key, not Atlassian-Agent's key.
-// Structures and flags mirror reference v1.3.1, but the result is watermarked,
-// independently signed, and NOT a real license or activation code.
+// Property construction and serialization from Atlassian-Agent v1.3.1.
 import { javaPropertyEntries } from "./java-properties-order.js";
 import { javaLocalDates } from "./java-local-date.js";
+import { javaUtf8 } from "./java-utf8.js";
 
 const productNames = {
   jira: "jira.product.jira-software",
@@ -35,20 +33,22 @@ export function escapeJavaProperty(str, isKey) {
 }
 export function propertiesForDemoProduct({
   serverId, email, organisation, product = "jira", name, datacenter = false,
-  now = new Date(), timeZone
+  now, idNow, clock = Date.now, timeZone, locale
 } = {}) {
-  if (!serverId?.trim() || !email?.trim() || !organisation?.trim() || !product?.trim())
+  if (serverId === undefined || email === undefined || organisation === undefined || typeof product !== "string")
     throw new Error("Укажите Server ID, email, организацию и продукт");
-  const chosen = product.trim();
-  if (!/^[a-zA-Z0-9_.-]{1,120}$/.test(chosen))
-    throw new Error("Product: допустимы буквы A–Z, цифры, _, - и точка");
-  const dt = new Date(now);
+  const chosen = product;
+  const dt = new Date(now === undefined ? clock() : now);
   if (Number.isNaN(dt.getTime())) throw new Error("Неверная дата генерации");
+  // Original constructor captures Date; init() obtains ID time separately.
+  // Explicit now/idNow remain available for reproducible comparisons.
+  const idDate = new Date(idNow === undefined ? (now === undefined ? clock() : now) : idNow);
+  if (Number.isNaN(idDate.getTime())) throw new Error("Неверная дата идентификатора");
   const known = Object.hasOwn(productNames, chosen);
   const key = known ? productNames[chosen] : chosen;
   const plugin = plugins.has(chosen) || !known;
-  const localDate = javaLocalDates(dt, timeZone);
-  const expiryDate = javaLocalDates(expires, timeZone).dateOnly;
+  const localDate = javaLocalDates(dt, timeZone, locale);
+  const expiryDate = javaLocalDates(expires, timeZone, locale).dateOnly;
   const prefix = field => key + "." + field;
   const data = new Map();
   const put = (field, value) => data.set(field, value == null ? null : String(value));
@@ -68,7 +68,7 @@ export function propertiesForDemoProduct({
       put("NumberOfUsers", "-1");
   }
   put(prefix("Starter"), "false");
-  const id = "L" + dt.getTime();
+  const id = "L" + idDate.getTime();
   put("SEN", "SEN-" + id);
   put("LicenseID", "LIDSEN-" + id);
   put("CreationDate", localDate.dateOnly);
@@ -85,7 +85,7 @@ export function propertiesForDemoProduct({
   } else put(prefix("LicenseTypeName"), "COMMERCIAL");
   put("Description", "Unlimited license by https://zhile.io");
   put("Evaluation", "false");
-  put("ContactName", name || email);
+  put("ContactName", name === undefined ? email : name);
   put("ContactEMail", email);
   put("ServerID", serverId);
   put("Organisation", organisation);
@@ -130,7 +130,7 @@ export async function buildReferenceDemoProperties(fields, signBytes) {
   if (typeof signBytes !== "function") throw new Error("Не передана DSA-подпись");
   const {header, data} = propertiesForDemoProduct(fields);
   const hashSource = serializeForLicenseHash(data);
-  const hashBytes = await signBytes(new TextEncoder().encode(hashSource));
+  const hashBytes = await signBytes(javaUtf8(hashSource));
   let binary = "";
   for (const byte of hashBytes) binary += String.fromCharCode(byte);
   data.set("licenseHash", btoa(binary));
