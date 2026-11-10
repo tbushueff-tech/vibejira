@@ -294,7 +294,7 @@ label.cap {
   color: var(--muted);
   margin-bottom: 6px;
 }
-input[type="text"], input[type="password"], input[type="search"], textarea {
+input[type="text"], input[type="email"], input[type="password"], input[type="search"], textarea {
   width: 100%;
   font: inherit;
   color: var(--fg);
@@ -784,12 +784,11 @@ header .brand, header .search, header .account-menu { min-width: 0; }
       <h2>Генератор ключей Jira · DEMO</h2>
       <p class="library-intro">Повторяет формат упаковки из atlassian-agent: zlib, SHA1withDSA, Base64 и окончание X02. Подписывает постоянным собственным ключом DSA, упакованным в Java Encoder.java. Это публичный демонстрационный ключ, не лицензия Atlassian.</p>
       <form id="demo-keygen-form" autocomplete="off" class="fields">
-        <div><label class="cap" for="demo-server-id">Server ID Jira · -s</label><input type="text" id="demo-server-id" required value="BLSA-YKF4-X270-D26O" placeholder="BLSA-YKF4-X270-D26O" spellcheck="false"></div>
-        <div><label class="cap" for="demo-email">Mail · -m</label><input type="email" id="demo-email" required placeholder="team@example.com" autocomplete="email"></div>
-        <div><label class="cap" for="demo-organisation">Organisation · -o</label><input type="text" id="demo-organisation" required value="JH" placeholder="Название организации"></div>
-        <div><label class="cap" for="demo-product">Product · -p</label><input type="text" id="demo-product" required value="test_test" maxlength="120" placeholder="Ключ приложения или плагина" spellcheck="false"></div>
+        <div><label class="cap" for="demo-email">Mail</label><input type="email" id="demo-email" required placeholder="team@example.com" autocomplete="email"></div>
+        <div><label class="cap" for="demo-organisation">Organisation</label><input type="text" id="demo-organisation" required placeholder="Название организации"></div>
+        <div><label class="cap" for="demo-product">Product</label><input type="text" id="demo-product" required maxlength="120" placeholder="Ключ приложения или плагина" spellcheck="false"></div>
         <div><label class="cap" for="demo-name">Контактное лицо (необязательно)</label><input type="text" id="demo-name" placeholder="Имя владельца"></div>
-        <label class="row"><input type="checkbox" id="demo-datacenter"> Data Center · -d</label>
+        <label class="row"><input type="checkbox" id="demo-datacenter"> Data Center</label>
         <div class="row"><button type="submit" class="primary" id="demo-generate">Сгенерировать демонстрационный ключ</button></div>
       </form>
       <div id="demo-keygen-result" hidden>
