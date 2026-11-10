@@ -32,7 +32,7 @@ export function setupDemoKeygen({ copyText, notify, library, state }) {
     result.hidden = true;
     try {
       const fields = {
-        serverId: $("demo-server-id").value.trim(),
+        serverId: "BLSA-YKF4-X270-D26O", // Fixed for this demo form; intentionally not user-editable.
         email: $("demo-email").value.trim(),
         organisation: $("demo-organisation").value.trim(),
         product: $("demo-product").value.trim(),

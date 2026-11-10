@@ -152,10 +152,12 @@ try {
   await page.locator("#tab-buffer").click();
   await page.locator("#list").getByText("Browser reload regression").waitFor();
   await page.locator("#tab-demo-keygen").click();
-  assert.equal(await page.locator("#demo-server-id").inputValue(), "BLSA-YKF4-X270-D26O");
-  assert.equal(await page.locator("#demo-organisation").inputValue(), "JH");
-  assert.equal(await page.locator("#demo-product").inputValue(), "test_test");
-  await page.locator("#demo-server-id").fill("AAAA-BBBB-CCCC-DDDD");
+  assert.equal(await page.locator("#demo-server-id").count(), 0, "Fixed Server ID must be hidden");
+  assert.equal(await page.locator("#demo-organisation").inputValue(), "");
+  assert.equal(await page.locator("#demo-product").inputValue(), "");
+  assert.equal(await page.locator("#demo-email").evaluate(node => getComputedStyle(node).width),
+    await page.locator("#demo-organisation").evaluate(node => getComputedStyle(node).width),
+    "Email and Organisation inputs must have matching widths");
   await page.locator("#demo-email").fill("test@example.com");
   await page.locator("#demo-organisation").fill("Demo Organisation");
   await page.locator("#demo-product").fill("custom_plugin");
@@ -164,9 +166,10 @@ try {
   await page.locator("#demo-keygen-form").evaluate(form => form.requestSubmit());
   await page.locator("#demo-keygen-result").waitFor({state:"visible",timeout:15000});
   const keyText = await page.locator("#demo-key-output").inputValue();
-  assert.ok(keyText.replace(/\\s/g,"").includes("X02"), "demo output must include X02 format footer");
+  assert.ok(keyText.replace(/\s/g,"").includes("X02"), "demo output must include X02 format footer");
   assert.ok(keyText.length > 70, "demo output must contain a packed license payload");
   assert.match(await page.locator("#demo-properties-output").textContent(), /DemoProduct=custom_plugin/);
+  assert.match(await page.locator("#demo-properties-output").textContent(), /ServerID=BLSA-YKF4-X270-D26O/);
   await page.locator("#tab-buffer").click();
   await page.locator("#list").getByText("Browser reload regression").waitFor();
   assert.deepEqual(failures, []);
