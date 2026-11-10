@@ -150,7 +150,7 @@ try {
   await page.getByText("Библиотека синхронизирована", {exact:false}).waitFor({timeout:30000});
   await page.locator("#library-list").getByText("Проверенный фрагмент").waitFor();
   await page.locator("#tab-buffer").click();
-  await page.getByText("Browser reload regression").waitFor();
+  await page.locator("#list").getByText("Browser reload regression").waitFor();
   assert.deepEqual(failures, []);
   console.log("Browser smoke: clipboard and permanent encrypted library survive reload and edit");
 } finally {
