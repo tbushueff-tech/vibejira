@@ -64,7 +64,7 @@ await page.route(apiOrigin + "/**", async route => {
     const text = JSON.stringify(encrypted);
     const offset = Number(url.searchParams.get("chunk"));
     const end = Math.min(text.length, offset + 2048);
-    response = { v: 3, revision: revision(text), offset, total: text.length,
+    response = { v: 3, revision: cloudRevision, offset, total: text.length,
       chunk: text.slice(offset, end), next: end < text.length ? end : null };
   } else {
     status = 404; response = { error: "Unknown request" };
