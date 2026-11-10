@@ -101,7 +101,6 @@ export function propertiesForDemoProduct({
     put("LicenseTypeName", "COMMERCIAL");
   } else put(prefix("LicenseTypeName"), "COMMERCIAL");
   // Deliberately not the reference author's real activation-description.
-  put("Description", "DEMONSTRATION ONLY - NOT A VALID ATLASSIAN LICENSE");
   put("Evaluation", "false");
   put("ContactName", cleaned(name) || cleaned(email));
   put("ContactEMail", cleaned(email));
