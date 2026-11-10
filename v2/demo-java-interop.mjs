@@ -31,7 +31,7 @@ function unpack(license) {
 }
 try {
   const javaSource = (await import("node:fs")).readFileSync(source,"utf8");
-  const actual = javaSource.match(/PRIVATE_KEY_STR\\s*=\\s*"([^"]+)"/)?.[1];
+  const actual = javaSource.match(/PRIVATE_KEY_STR\s*=\s*"([^"]+)"/)?.[1];
   assert.equal(actual,PRIVATE_KEY_STR,"Browser PKCS8 key must match Java Encoder PRIVATE_KEY_STR");
   execFileSync("javac",["-d",folder,source],{stdio:"pipe"});
   const properties = "#DEMONSTRATION ONLY\nServerID=DEMO-123\nDescription=Not an Atlassian license\n";
