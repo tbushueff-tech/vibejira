@@ -93,6 +93,31 @@ export class CloudApi {
     throw new ApiError("Облако менялось во время загрузки — повторите чтение");
   }
 
+  async listLibrary() {
+    const all = [];
+    let cursor = null;
+    let pages = 0;
+    do {
+      if (++pages > 250) throw new ApiError("Библиотека слишком большая для загрузки");
+      const path = "/library" + (cursor ? "?cursor=" + encodeURIComponent(cursor) : "");
+      const response = await this.request(path, { timeoutMs: 45000 });
+      if (!Array.isArray(response.items)) throw new ApiError("Неверный ответ библиотеки");
+      all.push(...response.items);
+      if (all.length > 10000) throw new ApiError("Превышен лимит элементов библиотеки");
+      cursor = response.nextCursor || null;
+    } while (cursor);
+    return all;
+  }
+
+  saveLibraryItem(encrypted) {
+    return this.request("/library", { method: "POST", data: encrypted, timeoutMs: 45000 });
+  }
+
+  deleteLibraryItem(id, revision) {
+    return this.request("/library/" + encodeURIComponent(id) + "?revision=" + revision,
+      { method: "DELETE" });
+  }
+
   writeBuffer(envelope, baseRevision) {
     if (!envelope || envelope.v !== 2 || !Array.isArray(envelope.items))
       throw new ApiError("Отправка неполного буфера запрещена");
