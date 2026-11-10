@@ -151,8 +151,21 @@ try {
   await page.locator("#library-list").getByText("Проверенный фрагмент").waitFor();
   await page.locator("#tab-buffer").click();
   await page.locator("#list").getByText("Browser reload regression").waitFor();
+  await page.locator("#tab-demo-keygen").click();
+  await page.locator("#demo-server-id").fill("AAAA-BBBB-CCCC-DDDD");
+  await page.locator("#demo-email").fill("test@example.com");
+  await page.locator("#demo-organisation").fill("Demo Organisation");
+  await page.locator("#demo-name").fill("Demo User");
+  await page.locator("#demo-datacenter").check();
+  await page.locator("#demo-keygen-form").evaluate(form => form.requestSubmit());
+  await page.locator("#demo-keygen-result").waitFor({state:"visible",timeout:15000});
+  const keyText = await page.locator("#demo-key-output").inputValue();
+  assert.ok(keyText.replace(/\\s/g,"").includes("X02"), "demo output must include X02 format footer");
+  assert.ok(keyText.length > 70, "demo output must contain a packed license payload");
+  await page.locator("#tab-buffer").click();
+  await page.locator("#list").getByText("Browser reload regression").waitFor();
   assert.deepEqual(failures, []);
-  console.log("Browser smoke: clipboard and permanent encrypted library survive reload and edit");
+  console.log("Browser smoke: clipboard, library and demo key generator passed");
 } finally {
   await browser.close();
 }
