@@ -93,8 +93,39 @@ export class CloudApi {
     throw new ApiError("Облако менялось во время загрузки — повторите чтение");
   }
 
+  async readLibraryItem(id) {
+    const base = "/library/" + encodeURIComponent(id);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const meta = await this.request(base + "?meta=1");
+      if (meta.v !== 3 || !Number.isSafeInteger(meta.revision) ||
+          !Number.isSafeInteger(meta.total) || meta.total <= 0 || meta.total > 400000) {
+        throw new ApiError("Некорректный размер записи библиотеки");
+      }
+      let offset = 0, text = "", retry = false;
+      while (offset < meta.total) {
+        const part = await this.request(base + "?chunk=" + offset);
+        if (part.revision !== meta.revision || part.total !== meta.total ||
+            part.offset !== offset || typeof part.chunk !== "string" ||
+            part.chunk.length === 0 || part.chunk.length > 2048) {
+          retry = true; break;
+        }
+        text += part.chunk; offset += part.chunk.length;
+      }
+      if (retry) continue;
+      if (offset !== meta.total) throw new ApiError("Неполная запись библиотеки");
+      let item;
+      try { item = JSON.parse(text); }
+      catch { throw new ApiError("Некорректный JSON записи библиотеки"); }
+      if (item.id !== id || item.revision !== meta.revision) {
+        throw new ApiError("Запись изменилась во время чтения");
+      }
+      return item;
+    }
+    throw new ApiError("Запись изменилась во время загрузки. Повторите попытку.");
+  }
+
   async listLibrary() {
-    const all = [];
+    const ids = [];
     let cursor = null;
     let pages = 0;
     do {
@@ -102,11 +133,15 @@ export class CloudApi {
       const path = "/library" + (cursor ? "?cursor=" + encodeURIComponent(cursor) : "");
       const response = await this.request(path, { timeoutMs: 45000 });
       if (!Array.isArray(response.items)) throw new ApiError("Неверный ответ библиотеки");
-      all.push(...response.items);
-      if (all.length > 10000) throw new ApiError("Превышен лимит элементов библиотеки");
+      ids.push(...response.items.map(x => x.id));
+      if (ids.length > 10000) throw new ApiError("Превышен лимит элементов библиотеки");
       cursor = response.nextCursor || null;
     } while (cursor);
-    return all;
+    const items = [];
+    // Read one item at a time to avoid exhausting the KV read budget and
+    // keep individual network responses small on restrictive networks.
+    for (const id of ids) items.push(await this.readLibraryItem(id));
+    return items;
   }
 
   saveLibraryItem(encrypted) {
