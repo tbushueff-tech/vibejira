@@ -1,0 +1,25 @@
+name: Keygen Form Polish Checks
+on:
+  push:
+    branches: [feature/keygen-form-polish]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Regression and syntax tests
+        run: |
+          node --check v2/demo-key-ui.js
+          npm test
+          node --test v2/app.test.mjs v2/demo-keygen.test.mjs
+      - name: Browser smoke and form layout
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8099 --bind 127.0.0.1 >/tmp/helper.log 2>&1 &
+          node v2/browser-smoke.mjs
