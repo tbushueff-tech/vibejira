@@ -1,0 +1,18 @@
+name: Prune generator only feature branch
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/prune-generator-once.yml"]
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Preserve etalon; prune merged feature only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/branches/stable-v2-etalon-2026-11-10" --jq '.commit.sha')" = "cf28f768470e85a8d7a5b5c2bccb4a4d134c8e2d"
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/feature/generator-only-reference"
