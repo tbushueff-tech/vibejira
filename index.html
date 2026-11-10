@@ -653,8 +653,9 @@ header .brand, header .search, header .account-menu { min-width: 0; }
 .library-meta { font-size:12px; color:var(--muted); }
 .library-code { white-space:pre-wrap; overflow-wrap:anywhere; }
 @media (max-width:720px) {
-  .library-tabs .nav-button { font-size:12px; min-height:32px; padding:0 8px; }
-  .library-tabs { margin-left:2px; }
+  header { grid-template-areas: "brand toggle account" "tabs tabs tabs" "search search search"; row-gap:5px; }
+  header .library-tabs { grid-area:tabs; justify-content:center; margin:0; }
+  .library-tabs .nav-button { font-size:12px; min-height:32px; padding:0 10px; }
 }
 </style>
 <style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style>
