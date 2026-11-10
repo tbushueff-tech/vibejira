@@ -100,7 +100,7 @@ test("reference product property models differ between Jira Software, Core, Serv
   const plugin=propertiesForDemoProduct({...common,product:"test_test"}).data;
   assert.equal(plugin.get("test_test.active"),"true");
   assert.equal(plugin.get("test_test.enterprise"),"true");
-  assert.equal(plugin.has("LicenseID"),false);
+  assert.equal(plugin.get("LicenseID"),null);
   assert.equal(plugin.get("LicenseTypeName"),"COMMERCIAL");
   assert.equal(plugin.get("test_test.DataCenter"),"true");
   const jira=propertiesForDemoProduct({...common,product:"jira"}).data;
@@ -132,3 +132,4 @@ test("single PKCS8 demo private key yields valid DSA parameters", () => {
   assert.ok(params.g > 1n);
   assert.ok(params.x > 0n && params.x < params.q);
 });
+

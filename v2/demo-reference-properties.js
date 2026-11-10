@@ -2,6 +2,8 @@
 // Uses Jira Helper's own publicly embedded DSA key, not Atlassian-Agent's key.
 // Structures and flags mirror reference v1.3.1, but the result is watermarked,
 // independently signed, and NOT a real license or activation code.
+import { javaPropertyEntries } from "./java-properties-order.js";
+import { javaLocalDates } from "./java-local-date.js";
 
 const productNames = {
   jira: "jira.product.jira-software",
@@ -15,29 +17,7 @@ const productNames = {
   portfolio: "com.radiantminds.roadmaps-jira",
 };
 const plugins = new Set(["questions", "tc", "capture", "training", "portfolio"]);
-const baseOnly = new Set(["conf", "bitbucket", "fisheye", "crucible", "crowd", "bamboo"]);
 const expires = new Date(3771590399000);
-
-function dateOnly(date) {
-  // Reference Java SimpleDateFormat("yyyy-MM-dd"). Use UTC for deterministic
-  // cross-browser behavior rather than the host Java machine's timezone.
-  return new Date(date).toISOString().slice(0, 10);
-}
-function javaDate(date) {
-  // Reference Java Date#toString in UTC (Java's default zone is environment-
-  // dependent, so byte-for-byte identity is intentionally not guaranteed).
-  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const two = n => String(n).padStart(2, "0");
-  return weekdays[date.getUTCDay()] + " " + months[date.getUTCMonth()] +
-    " " + two(date.getUTCDate()) + " " + two(date.getUTCHours()) + ":" +
-    two(date.getUTCMinutes()) + ":" + two(date.getUTCSeconds()) +
-    " UTC " + date.getUTCFullYear();
-}
-function cleaned(value) {
-  return String(value ?? "").replace(/[\r\n]/g, " ").trim();
-}
 export function escapeJavaProperty(str, isKey) {
   const s = String(str);
   let result = "";
@@ -55,7 +35,7 @@ export function escapeJavaProperty(str, isKey) {
 }
 export function propertiesForDemoProduct({
   serverId, email, organisation, product = "jira", name, datacenter = false,
-  now = new Date()
+  now = new Date(), timeZone
 } = {}) {
   if (!serverId?.trim() || !email?.trim() || !organisation?.trim() || !product?.trim())
     throw new Error("Укажите Server ID, email, организацию и продукт");
@@ -64,48 +44,51 @@ export function propertiesForDemoProduct({
     throw new Error("Product: допустимы буквы A–Z, цифры, _, - и точка");
   const dt = new Date(now);
   if (Number.isNaN(dt.getTime())) throw new Error("Неверная дата генерации");
-  const key = productNames[chosen] || chosen;
-  const plugin = plugins.has(chosen) || !productNames[chosen];
+  const known = Object.hasOwn(productNames, chosen);
+  const key = known ? productNames[chosen] : chosen;
+  const plugin = plugins.has(chosen) || !known;
+  const localDate = javaLocalDates(dt, timeZone);
+  const expiryDate = javaLocalDates(expires, timeZone).dateOnly;
   const prefix = field => key + "." + field;
   const data = new Map();
-  const put = (field, value) => data.set(field, String(value));
+  const put = (field, value) => data.set(field, value == null ? null : String(value));
   const active = "true", dc = Boolean(datacenter);
   // Mirrors LicenseProperty.init() and product subclasses' overrides.
   put(prefix("active"), active);
   if (chosen === "jira") { put("greenhopper.active", active); put("jira.active", active); }
   if (chosen === "jc") put("jira.active", active);
   if (chosen === "jsd" || chosen === "jsm") put("com.atlassian.servicedesk.active", active);
-  put("PurchaseDate", dateOnly(dt));
-  put("LicenseExpiryDate", dateOnly(expires));
-  put("MaintenanceExpiryDate", dateOnly(expires));
+  put("PurchaseDate", localDate.dateOnly);
+  put("LicenseExpiryDate", expiryDate);
+  put("MaintenanceExpiryDate", expiryDate);
   if (chosen !== "bamboo") {
-    if (plugin || ["jira","jc","jsd","jsm"].includes(chosen))
-      put("NumberOfUsers", "-1");
     if (!plugin) put(prefix("NumberOfUsers"), "-1");
     if (["jira", "jc"].includes(chosen)) put("jira.NumberOfUsers", "-1");
+    if (plugin || ["jira","jc","jsd","jsm"].includes(chosen))
+      put("NumberOfUsers", "-1");
   }
   put(prefix("Starter"), "false");
   const id = "L" + dt.getTime();
   put("SEN", "SEN-" + id);
-  if (!plugin) put("LicenseID", "LIDSEN-" + id);
-  put("CreationDate", dateOnly(dt));
+  put("LicenseID", "LIDSEN-" + id);
+  put("CreationDate", localDate.dateOnly);
   if (["jira", "jc"].includes(chosen)) {
     put("LicenseTypeName", "COMMERCIAL");
-    put("jira.LicenseTypeName", "COMMERCIAL");
     if (chosen === "jira") put("greenhopper.LicenseTypeName", "COMMERCIAL");
+    put("jira.LicenseTypeName", "COMMERCIAL");
   } else if (["jsd","jsm"].includes(chosen)) {
     put("LicenseTypeName", "COMMERCIAL");
     put("com.atlassian.servicedesk.LicenseTypeName", "COMMERCIAL");
-  } else if (!productNames[chosen] || chosen === "capture") {
+  } else if (!known || chosen === "capture") {
     // ThirdPlugin, including Capture, overrides setLicenseType.
     put("LicenseTypeName", "COMMERCIAL");
   } else put(prefix("LicenseTypeName"), "COMMERCIAL");
-  put("Description", "License for " + cleaned(organisation));
+  put("Description", "License for " + organisation);
   put("Evaluation", "false");
-  put("ContactName", cleaned(name) || cleaned(email));
-  put("ContactEMail", cleaned(email));
-  put("ServerID", cleaned(serverId));
-  put("Organisation", cleaned(organisation));
+  put("ContactName", name || email);
+  put("ContactEMail", email);
+  put("ServerID", serverId);
+  put("Organisation", organisation);
   if (dc) {
     put(prefix("DataCenter"), "true");
     put("Subscription", "true");
@@ -114,7 +97,10 @@ export function propertiesForDemoProduct({
   put("licenseVersion", "2");
   put("keyVersion", "1600708331");
 
-  if (plugin) put(prefix("enterprise"), "true");
+  if (plugin) {
+    put("LicenseID", null);
+    put(prefix("enterprise"), "true");
+  }
   if (chosen === "training") put("Subscription", "true");
   if (chosen === "jira") {
     put("greenhopper.LicenseEdition", "UNLIMITED");
@@ -131,7 +117,7 @@ export function propertiesForDemoProduct({
     put(prefix("NumberOfBambooRemoteAgents"), "1000");
     put(prefix("NumberOfBambooPlans"), "-1");
   }
-  return { header: "#" + javaDate(dt), data, key, isPlugin: plugin };
+  return { header: "#" + localDate.dateTime, data, key, isPlugin: plugin };
 }
 export function serializeForLicenseHash(data) {
   return [...data.entries()]
@@ -148,8 +134,8 @@ export async function buildReferenceDemoProperties(fields, signBytes) {
   let binary = "";
   for (const byte of hashBytes) binary += String.fromCharCode(byte);
   data.set("licenseHash", btoa(binary));
-  // Java HashMap serialization order varies. Deterministic insertion order
-  // preserves the same key=value semantics and allows reliable inspection.
-  return header + "\n" + [...data.entries()].filter(([,v]) => v != null)
+  // Match reference HashMap(32), including invisible null entries and resize.
+  return header + "\n" + javaPropertyEntries(data).filter(([,v]) => v != null)
     .map(([key,value]) => key + "=" + value).join("\n");
 }
+

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test worker/test/*.test.mjs"
+    "test": "node --test worker/test/*.test.mjs v2/*.test.mjs"
   }
 }
+
