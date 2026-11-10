@@ -83,10 +83,12 @@ async function zlibCompress(bytes) {
 }
 const padDate = dt => new Date(dt).toISOString().slice(0, 10);
 export function buildJiraDemoProperties({
-  serverId, email, organisation, name, datacenter = false
+  serverId, email, organisation, product = "jira", name, datacenter = false
 }) {
-  if (!serverId?.trim() || !email?.trim() || !organisation?.trim())
-    throw new Error("Укажите Server ID, email и организацию");
+  if (!serverId?.trim() || !email?.trim() || !organisation?.trim() || !product?.trim())
+    throw new Error("Укажите Server ID, email, организацию и продукт");
+  if (!/^[A-Za-z0-9_.-]{1,120}$/.test(product.trim()))
+    throw new Error("Product: допустимы буквы A–Z, цифры, _, - и точка");
   const now = new Date();
   const today = padDate(now);
   const expiry = "2090-01-01"; // informational DEMO value only
@@ -95,6 +97,7 @@ export function buildJiraDemoProperties({
   const entries = [
     ["CreationDate", today], ["ContactName", name?.trim() || email.trim()],
     ["ContactEMail", email.trim()], ["ServerID", serverId.trim()],
+    ["DemoProduct", product.trim()],
     ["Organisation", organisation.trim()], ["SEN", "SEN-" + sid],
     ["LicenseID", "LIDSEN-" + sid],
     ["PurchaseDate", today], ["LicenseExpiryDate", expiry],
@@ -108,6 +111,8 @@ export function buildJiraDemoProperties({
     ["greenhopper.LicenseEdition", "UNLIMITED"],
     ["greenhopper.enterprise", "true"]
   ];
+  // Product is informational metadata in this DEMO encoder; it does not
+  // attempt to produce an activation license for a plugin.
   if (datacenter) entries.push([product + ".DataCenter", "true"],
     ["jira.DataCenter", "true"], ["Subscription", "true"]);
   return "#DEMONSTRATION ONLY\n" + entries.map(([key,value]) => key+"="+String(value).replace(/[\r\n]/g," ")).join("\n");
