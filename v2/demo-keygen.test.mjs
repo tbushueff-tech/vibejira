@@ -52,3 +52,24 @@ test("every browser-generated signature verifies against the fixed public DSA ke
     assert.equal(verifySignature("sha1", body, pub, sig), true, "signature must verify under the same public key");
   }
 });
+
+test("editable demo plugin Product, Server ID, Mail and Organisation are in the decoded payload", async () => {
+  const fields = {
+    product: "test_test",
+    serverId: "BLSA-YKF4-X270-D26O",
+    email: "admin@example.com",
+    organisation: "JH",
+    datacenter: true
+  };
+  const result = await generateJiraDemoKey(fields);
+  const { decoded } = inspect(result.key);
+  assert.match(decoded, /DemoProduct=test_test/);
+  assert.match(decoded, /ServerID=BLSA-YKF4-X270-D26O/);
+  assert.match(decoded, /ContactEMail=admin@example\.com/);
+  assert.match(decoded, /Organisation=JH/);
+  assert.match(decoded, /test_test\.DataCenter=true/);
+  assert.match(decoded, /DEMONSTRATION ONLY/);
+  const server = buildJiraDemoProperties({ ...fields, datacenter: false });
+  assert.doesNotMatch(server, /test_test\.DataCenter=true/);
+  assert.throws(() => buildJiraDemoProperties({ ...fields, product: "invalid\nproperty" }), /Product:/);
+});
