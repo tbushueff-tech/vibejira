@@ -639,14 +639,6 @@ header .brand, header .search, header .account-menu { min-width: 0; }
   .search { flex-basis: auto; }
 }
 
-/* Demonstration key generator. */
-#demo-keygen-view .composer { max-width:800px; width:100%; }
-#demo-keygen-view input[type="checkbox"] { width:18px; height:18px; accent-color:var(--accent); }
-#demo-key-output { min-height:205px; font-size:12px; overflow-wrap:anywhere; }
-#demo-keygen-result { display:flex; flex-direction:column; gap:10px; }
-#demo-keygen-result[hidden] { display:none; }
-#demo-keygen-result details summary { cursor:pointer; color:var(--accent); font-weight:600; }
-#demo-keygen-result pre { max-height:280px; overflow:auto; }
 /* Permanent code library: stays visually consistent with the original Jira toolbar. */
 .library-tabs { display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
 .library-tabs .nav-button { white-space:nowrap; }
@@ -723,7 +715,6 @@ header .brand, header .search, header .account-menu { min-width: 0; }
     <nav class="library-tabs" aria-label="Разделы Jira Helper">
       <button type="button" class="nav-button active" id="tab-buffer" aria-selected="true">Буфер</button>
       <button type="button" class="nav-button" id="tab-library" aria-selected="false">Библиотека</button>
-      <button type="button" class="nav-button" id="tab-demo-keygen" aria-selected="false">Генератор ключей</button>
     </nav>
     <div class="nav-spacer"></div>
     <button type="button" class="search-toggle" id="search-toggle" aria-label="Открыть поиск" aria-expanded="false" aria-controls="search-box">
@@ -779,27 +770,6 @@ header .brand, header .search, header .account-menu { min-width: 0; }
 
   <div class="status"><span id="count"></span><span id="sync-status">Подключение к облаку…</span></div>
   <section class="grid" id="list" aria-label="Сохранённые тексты"></section>
-  <section class="library-panel" id="demo-keygen-view" hidden aria-label="Генератор демонстрационных ключей Jira">
-    <div class="composer">
-      <h2>Генератор ключей Jira · DEMO</h2>
-      <p class="library-intro">Формат Atlassian-Agent v1.3.1: свойства продукта, внутренний licenseHash, подпись SHA1withDSA, zlib, Base64 и X02. Используется опубликованный ключ оригинального Encoder. Генерация выполняется локально.</p>
-      <form id="demo-keygen-form" autocomplete="off" class="fields">
-        <div><label class="cap" for="demo-email">Mail</label><input type="email" id="demo-email" required placeholder="team@example.com" autocomplete="email"></div>
-        <div><label class="cap" for="demo-organisation">Organisation</label><input type="text" id="demo-organisation" required placeholder="Название организации"></div>
-        <div><label class="cap" for="demo-product">Product</label><input type="text" id="demo-product" required placeholder="Ключ приложения или плагина" spellcheck="false"></div>
-        <div><label class="cap" for="demo-name">Контактное лицо (необязательно)</label><input type="text" id="demo-name" placeholder="Имя владельца"></div>
-        <label class="row"><input type="checkbox" id="demo-datacenter"> Data Center</label>
-        <div class="row"><button type="submit" class="primary" id="demo-generate">Сгенерировать демонстрационный ключ</button></div>
-      </form>
-      <div id="demo-keygen-result" hidden>
-        <p class="library-intro"><strong>Демонстрационный ключ — не подходит для активации Jira.</strong> Генерация локальная, введённые данные никуда не отправляются.</p>
-        <label class="cap" for="demo-key-output">Ключ в формате atlassian-agent</label>
-        <textarea id="demo-key-output" readonly spellcheck="false" rows="9"></textarea>
-        <div class="row"><button type="button" class="primary" id="demo-copy">Копировать ключ</button></div>
-        <details><summary>Содержимое лицензионного блока</summary><pre id="demo-properties-output" class="snippet open library-code"></pre></details>
-      </div>
-    </div>
-  </section>
   <section class="library-panel" id="library-view" hidden aria-label="Библиотека кода">
     <p class="library-intro">Постоянное зашифрованное хранение удачных фрагментов кода. Записи не удаляются через 7 дней.</p>
     <div class="row">

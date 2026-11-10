@@ -5,7 +5,6 @@ import {
   clearScopedCache
 } from "./crypto.js";
 import { createLibrary } from "./library.js";
-import { setupDemoKeygen } from "./demo-key-ui.js";
 
 // Jira Helper V2. No framework, keeps the existing HTML/CSS and element IDs.
 // The UI never treats a partial remote download as a valid cloud snapshot.
@@ -41,23 +40,15 @@ const view = {
   passwordError: $("password-error"), passwordSubmit: $("password-submit"),
   toast: $("toast"), guestDisclaimer: $("guest-disclaimer")
 };
-let demoUi;
 const library = createLibrary({
   api,
   session: () => state,
   notify: message => notify(message),
   copyText: text => copyText(text),
   onTabChange: () => {
-    demoUi?.hide();
     state.query = view.search.value.trim();
     render();
   }
-});
-demoUi = setupDemoKeygen({
-  copyText: text => copyText(text),
-  notify: message => notify(message),
-  library,
-  state
 });
 
 const expiry = item => Number(item.expiresAt) || 0;
@@ -343,7 +334,6 @@ function card(item) {
   return node;
 }
 function render() {
-  if (demoUi?.isActive()) return;
   if (library.isActive()) {
     library.render(state.query);
     return;
