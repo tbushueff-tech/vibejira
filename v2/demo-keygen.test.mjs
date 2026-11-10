@@ -4,6 +4,7 @@ import { inflateSync } from "node:zlib";
 import { createPublicKey, verify as verifySignature } from "node:crypto";
 import { DEMO_DSA } from "./demo-dsa-key.js";
 import { buildJiraDemoProperties, generateJiraDemoKey } from "./demo-keygen.js";
+import { serializeForLicenseHash, escapeJavaProperty, propertiesForDemoProduct } from "./demo-reference-properties.js";
 
 function inspect(key) {
   const clean = key.replace(/\s/g, "");
@@ -41,7 +42,7 @@ test("same fixed DSA key produces distinct valid signatures from random nonces",
   assert.notDeepEqual(a.sig,b.sig);
 });
 test("generator validates required metadata", async() => {
-  assert.throws(() => buildJiraDemoProperties({ serverId:"",email:"",organisation:"" }),/Server ID/);
+  await assert.rejects(() => buildJiraDemoProperties({ serverId:"",email:"",organisation:"" }),/Server ID/);
 });
 
 test("every browser-generated signature verifies against the fixed public DSA key", async () => {
@@ -63,13 +64,62 @@ test("editable demo plugin Product, Server ID, Mail and Organisation are in the 
   };
   const result = await generateJiraDemoKey(fields);
   const { decoded } = inspect(result.key);
-  assert.match(decoded, /DemoProduct=test_test/);
+  assert.match(decoded, /test_test.active=true/);
+  assert.match(decoded, /test_test.enterprise=true/);
+  assert.doesNotMatch(decoded, /DemoProduct=/);
+  assert.doesNotMatch(decoded, /jira.product.jira-software.active=/);
+  assert.doesNotMatch(decoded, /LicenseID=/);
   assert.match(decoded, /ServerID=BLSA-YKF4-X270-D26O/);
   assert.match(decoded, /ContactEMail=admin@example\.com/);
   assert.match(decoded, /Organisation=JH/);
   assert.match(decoded, /test_test\.DataCenter=true/);
   assert.match(decoded, /DEMONSTRATION ONLY/);
-  const server = buildJiraDemoProperties({ ...fields, datacenter: false });
+  const server = await buildJiraDemoProperties({ ...fields, datacenter: false });
   assert.doesNotMatch(server, /test_test\.DataCenter=true/);
-  assert.throws(() => buildJiraDemoProperties({ ...fields, product: "invalid\nproperty" }), /Product:/);
+  await assert.rejects(() => buildJiraDemoProperties({ ...fields, product: "invalid\nproperty" }), /Product:/);
+});
+
+test("inner licenseHash and outer envelope both verify with OUR own DSA public key", async () => {
+  const publicKey = createPublicKey({ key: Buffer.from(DEMO_DSA.publicSpkiBase64, "base64"), format:"der", type:"spki" });
+  const fixed = {...fields, product:"test_test", now:new Date("2026-11-10T11:20:05Z")};
+  const original = propertiesForDemoProduct(fixed);
+  const payload = serializeForLicenseHash(original.data);
+  const generated = await generateJiraDemoKey(fixed);
+  const unpacked = inspect(generated.key);
+  const match = unpacked.decoded.match(/^licenseHash=([^\n]+)/m);
+  assert.ok(match, "must include reference-style inner hash");
+  assert.equal(verifySignature("sha1", Buffer.from(payload, "utf8"), publicKey,
+    Buffer.from(match[1], "base64")), true, "inner licenseHash invalid");
+  assert.equal(verifySignature("sha1", unpacked.body, publicKey, unpacked.sig), true,
+    "outer signature invalid");
+  assert.match(unpacked.decoded, /^keyVersion=1600708331$/m);
+  assert.match(unpacked.decoded, /^licenseVersion=2$/m);
+});
+test("reference product property models differ between Jira Software, Core, Service Desk and ThirdPlugin", () => {
+  const common={serverId:"BLSA-YKF4-X270-D26O",email:"demo@example.test",
+    organisation:"JH",datacenter:true,now:new Date("2026-11-10T09:12:00Z")};
+  const plugin=propertiesForDemoProduct({...common,product:"test_test"}).data;
+  assert.equal(plugin.get("test_test.active"),"true");
+  assert.equal(plugin.get("test_test.enterprise"),"true");
+  assert.equal(plugin.has("LicenseID"),false);
+  assert.equal(plugin.get("LicenseTypeName"),"COMMERCIAL");
+  assert.equal(plugin.get("test_test.DataCenter"),"true");
+  const jira=propertiesForDemoProduct({...common,product:"jira"}).data;
+  assert.equal(jira.get("jira.product.jira-software.active"),"true");
+  assert.equal(jira.get("jira.LicenseEdition"),"UNLIMITED");
+  assert.equal(jira.has("test_test.enterprise"),false);
+  const core=propertiesForDemoProduct({...common,product:"jc"}).data;
+  assert.equal(core.get("jira.product.jira-core.active"),"true");
+  assert.equal(core.get("jira.LicenseEdition"),"UNLIMITED");
+  const desk=propertiesForDemoProduct({...common,product:"jsm"}).data;
+  assert.equal(desk.get("com.atlassian.servicedesk.numRoleCount"),"-1");
+  assert.equal(desk.get("jira.DataCenter"),"true");
+  const bamboo=propertiesForDemoProduct({...common,product:"bamboo"}).data;
+  assert.equal(bamboo.get("bamboo.NumberOfBambooRemoteAgents"),"1000");
+  assert.equal(bamboo.has("NumberOfUsers"),false);
+});
+test("reference sorted and escaped licenseHash source", () => {
+  const data = new Map([["z"," value"],["a.b","a=b:c"],["licenseHash","old"]]);
+  assert.equal(serializeForLicenseHash(data),"a.b=a\\=b\\:c\nz=\\ value\n");
+  assert.equal(escapeJavaProperty("A B",true),"A\\ B");
 });

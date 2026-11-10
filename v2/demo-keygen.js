@@ -1,4 +1,5 @@
 import { DEMO_DSA } from "./demo-dsa-key.js";
+import { buildReferenceDemoProperties } from "./demo-reference-properties.js";
 
 // Original agent-style packaging with a NEW, fixed Jira Helper DSA keypair.
 // Corresponds to the PKCS#8 constant in v2/java/.../Encoder.java.
@@ -81,44 +82,13 @@ async function zlibCompress(bytes) {
   const stream = source.pipeThrough(new CompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
-const padDate = dt => new Date(dt).toISOString().slice(0, 10);
-export function buildJiraDemoProperties({
-  serverId, email, organisation, product = "jira", name, datacenter = false
-}) {
-  if (!serverId?.trim() || !email?.trim() || !organisation?.trim() || !product?.trim())
-    throw new Error("Укажите Server ID, email, организацию и продукт");
-  if (!/^[A-Za-z0-9_.-]{1,120}$/.test(product.trim()))
-    throw new Error("Product: допустимы буквы A–Z, цифры, _, - и точка");
-  const now = new Date();
-  const today = padDate(now);
-  const expiry = "2090-01-01"; // informational DEMO value only
-  const sid = "L" + now.getTime();
-  const jiraProduct = "jira.product.jira-software";
-  const entries = [
-    ["CreationDate", today], ["ContactName", name?.trim() || email.trim()],
-    ["ContactEMail", email.trim()], ["ServerID", serverId.trim()],
-    ["DemoProduct", product.trim()],
-    ["Organisation", organisation.trim()], ["SEN", "SEN-" + sid],
-    ["LicenseID", "LIDSEN-" + sid],
-    ["PurchaseDate", today], ["LicenseExpiryDate", expiry],
-    ["MaintenanceExpiryDate", expiry], ["licenseVersion", "2"],
-    ["Description", "DEMONSTRATION ONLY - NOT A VALID JIRA LICENSE"],
-    ["Evaluation", "false"], ["LicenseTypeName", "COMMERCIAL"],
-    ["jira.active", "true"], ["greenhopper.active", "true"],
-    [jiraProduct + ".active", "true"], [jiraProduct + ".Starter", "false"],
-    [jiraProduct + ".NumberOfUsers", "-1"], ["jira.NumberOfUsers", "-1"],
-    ["NumberOfUsers", "-1"], ["jira.LicenseEdition", "UNLIMITED"],
-    ["greenhopper.LicenseEdition", "UNLIMITED"],
-    ["greenhopper.enterprise", "true"]
-  ];
-  // Product is informational metadata in this DEMO encoder; it does not
-  // attempt to produce an activation license for a plugin.
-  if (datacenter) entries.push([product + ".DataCenter", "true"],
-    ["jira.DataCenter", "true"], ["Subscription", "true"]);
-  return "#DEMONSTRATION ONLY\n" + entries.map(([key,value]) => key+"="+String(value).replace(/[\r\n]/g," ")).join("\n");
+// Reference: the text body also contains a licenseHash signed under the
+// SAME independent, publicly known demo key used by the outer envelope.
+export async function buildJiraDemoProperties(fields) {
+  return buildReferenceDemoProperties(fields, demoDsaSign);
 }
 export async function generateJiraDemoKey(fields) {
-  const properties = buildJiraDemoProperties(fields);
+  const properties = await buildJiraDemoProperties(fields);
   const compressed = await zlibCompress(encoder.encode(properties));
   const payload = concat(Uint8Array.of(13,14,12,10,15), compressed);
   const signature = await demoDsaSign(payload);
