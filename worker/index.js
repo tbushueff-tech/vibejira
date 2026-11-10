@@ -12,7 +12,7 @@ const DUMMY_SALT = "AAAAAAAAAAAAAAAAAAAAAA";
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
     "Cache-Control": "no-store",
@@ -298,6 +298,84 @@ async function saveBuffer(env, username, items, rev) {
     JSON.stringify({ v: 2, rev, items: kept }),
     { expiration: kvExpiration(kept.length ? latest : now + SESSION_TTL_MS) }
   );
+}
+
+// Permanent encrypted code library is independent of the expiring clipboard.
+// Each item has its own KV key and no expiration, so editing one snippet does
+// not rewrite (or risk erasing) the user's other snippets.
+const LIBRARY_PAGE_SIZE = 40;
+const LIBRARY_ID = /^[A-Za-z0-9_-]{1,64}$/;
+function libraryPrefix(username) {
+  return "library:" + username.toLowerCase() + ":";
+}
+function libraryKey(username, id) {
+  return libraryPrefix(username) + id;
+}
+function validLibraryItem(item) {
+  return !!item && item.v === 2 &&
+    typeof item.id === "string" && LIBRARY_ID.test(item.id) &&
+    typeof item.iv === "string" && item.iv.length >= 8 && item.iv.length <= 64 &&
+    typeof item.ciphertext === "string" &&
+    item.ciphertext.length >= 20 && item.ciphertext.length <= 300000 &&
+    Number.isSafeInteger(item.revision) && item.revision >= 0;
+}
+async function handleLibrary(request, env, username, url) {
+  if (request.method === "GET" && url.pathname === "/library") {
+    const prefix = libraryPrefix(username);
+    const cursor = url.searchParams.get("cursor") || undefined;
+    const page = await env.USER_STORE.list({ prefix, cursor, limit: LIBRARY_PAGE_SIZE });
+    const items = await Promise.all(page.keys.map(async key => {
+      const raw = await env.USER_STORE.get(key.name);
+      if (!raw) return null; // Deleted between list and read.
+      try {
+        const item = JSON.parse(raw);
+        return validLibraryItem(item) ? item : null;
+      } catch { return null; }
+    }));
+    return json({ ok: true, items: items.filter(Boolean),
+      nextCursor: page.list_complete ? null : page.cursor || null }, 200);
+  }
+  if (request.method === "POST" && url.pathname === "/library") {
+    const text = await request.text();
+    if (text.length > 400000) return json({ error: "Слишком большой фрагмент кода" }, 413);
+    let item;
+    try { item = JSON.parse(text); } catch { return json({ error: "Неверный JSON" }, 400); }
+    if (!validLibraryItem(item)) return json({ error: "Неверная зашифрованная запись" }, 400);
+    const key = libraryKey(username, item.id);
+    const raw = await env.USER_STORE.get(key);
+    let old = null;
+    if (raw) {
+      try { old = JSON.parse(raw); } catch { return json({ error: "Повреждённая версия записи" }, 409); }
+      if (!validLibraryItem(old)) return json({ error: "Повреждённая версия записи" }, 409);
+    }
+    const currentRevision = old ? old.revision : 0;
+    if (item.revision !== currentRevision) {
+      return json({ ok: false, conflict: true, revision: currentRevision,
+        error: "Запись изменилась на другом устройстве. Обновите библиотеку." }, 409);
+    }
+    const saved = { v: 2, id: item.id, iv: item.iv,
+      ciphertext: item.ciphertext, revision: currentRevision + 1 };
+    // Deliberately NO KV expiration: permanent until explicit deletion.
+    await env.USER_STORE.put(key, JSON.stringify(saved));
+    return json({ ok: true, revision: saved.revision }, 200);
+  }
+  if (request.method === "DELETE" && url.pathname.startsWith("/library/")) {
+    const id = url.pathname.slice("/library/".length);
+    if (!LIBRARY_ID.test(id)) return json({ error: "Неверный идентификатор" }, 400);
+    const expected = Number(url.searchParams.get("revision"));
+    if (!Number.isSafeInteger(expected) || expected < 1)
+      return json({ error: "Нужна подтверждённая версия записи" }, 400);
+    const key = libraryKey(username, id);
+    const raw = await env.USER_STORE.get(key);
+    if (!raw) return json({ error: "Запись уже удалена" }, 404);
+    let existing;
+    try { existing = JSON.parse(raw); } catch { return json({ error: "Повреждённая запись" }, 409); }
+    if (!validLibraryItem(existing) || existing.revision !== expected)
+      return json({ error: "Запись изменилась. Обновите библиотеку перед удалением." }, 409);
+    await env.USER_STORE.delete(key);
+    return json({ ok: true }, 200);
+  }
+  return json({ error: "Method not allowed" }, 405);
 }
 
 async function handleBuffer(request, env, session) {
@@ -592,6 +670,9 @@ export default {
       }
       if (!env.USER_STORE) {
         return json({ ok: false, error: "Хранилище не настроено" }, 503);
+      }
+      if (url.pathname === "/library" || url.pathname.startsWith("/library/")) {
+        return await handleLibrary(request, env, session.username, url);
       }
       return await handleBuffer(request, env, session);
     } catch (e) {
