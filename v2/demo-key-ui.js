@@ -35,6 +35,7 @@ export function setupDemoKeygen({ copyText, notify, library, state }) {
         serverId: $("demo-server-id").value.trim(),
         email: $("demo-email").value.trim(),
         organisation: $("demo-organisation").value.trim(),
+        product: $("demo-product").value.trim(),
         name: $("demo-name").value.trim(),
         datacenter: $("demo-datacenter").checked
       };
