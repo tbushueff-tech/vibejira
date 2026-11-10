@@ -1,5 +1,6 @@
 package io.bushueff.jirahelper.demo;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -9,7 +10,8 @@ import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
-import java.util.zip.DeflaterOutputStream;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterInputStream;
 
 /**
  * Demonstration format encoder analogous to Atlassian-Agent's Encoder.java.
@@ -45,18 +47,29 @@ public final class Encoder {
         payload[3] = 10;
         payload[4] = 15;
         System.arraycopy(compressed, 0, payload, 5, compressed.length);
-        Signature signer = Signature.getInstance("SHA1withDSA");
-        signer.initSign(PRIVATE_KEY);
-        signer.update(payload);
-        return packLicense(payload, signer.sign());
+        return packLicense(payload, sign(payload));
     }
 
+    // Same SHA1withDSA operation and PKCS#8 key loading as reference Encoder.
+    public static byte[] sign(byte[] bytes) throws Exception {
+        Signature signer = Signature.getInstance("SHA1withDSA");
+        signer.initSign(PRIVATE_KEY);
+        signer.update(bytes);
+        return signer.sign();
+    }
+
+    // Mirror the reference's DeflaterInputStream form, not a different codec.
     private static byte[] zipText(byte[] bytes) throws IOException {
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        try (DeflaterOutputStream deflate = new DeflaterOutputStream(stream)) {
-            deflate.write(bytes);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ByteArrayInputStream in = new ByteArrayInputStream(bytes);
+             DeflaterInputStream deflater = new DeflaterInputStream(in, new Deflater())) {
+            byte[] buffer = new byte[64];
+            int len;
+            while ((len = deflater.read(buffer)) > 0) {
+                out.write(buffer, 0, len);
+            }
         }
-        return stream.toByteArray();
+        return out.toByteArray();
     }
 
     private static String packLicense(byte[] payload, byte[] signature) throws IOException {
