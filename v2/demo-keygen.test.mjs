@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { inflateSync } from "node:zlib";
-import { createPublicKey, verify as verifySignature } from "node:crypto";
-import { DEMO_DSA } from "./demo-dsa-key.js";
+import { createPrivateKey, createPublicKey, verify as verifySignature } from "node:crypto";
+import { PRIVATE_KEY_STR, readDemoDsaPrivateKey } from "./demo-private-key.js";
 import { buildJiraDemoProperties, generateJiraDemoKey } from "./demo-keygen.js";
 import { serializeForLicenseHash, escapeJavaProperty, propertiesForDemoProduct } from "./demo-reference-properties.js";
 
@@ -46,7 +46,7 @@ test("generator validates required metadata", async() => {
 });
 
 test("every browser-generated signature verifies against the fixed public DSA key", async () => {
-  const pub = createPublicKey({ key: Buffer.from(DEMO_DSA.publicSpkiBase64, "base64"), format: "der", type: "spki" });
+  const pub = createPublicKey(createPrivateKey({key: Buffer.from(PRIVATE_KEY_STR,"base64"), format:"der",type:"pkcs8"}));
   assert.equal(pub.asymmetricKeyType, "dsa");
   for (let i = 0; i < 5; i++) {
     const {body, sig} = inspect((await generateJiraDemoKey(fields)).key);
@@ -80,7 +80,7 @@ test("editable demo plugin Product, Server ID, Mail and Organisation are in the 
 });
 
 test("inner licenseHash and outer envelope both verify with OUR own DSA public key", async () => {
-  const publicKey = createPublicKey({ key: Buffer.from(DEMO_DSA.publicSpkiBase64, "base64"), format:"der", type:"spki" });
+  const publicKey = createPublicKey(createPrivateKey({key: Buffer.from(PRIVATE_KEY_STR,"base64"), format:"der",type:"pkcs8"}));
   const fixed = {...fields, product:"test_test", now:new Date("2026-11-10T11:20:05Z")};
   const original = propertiesForDemoProduct(fixed);
   const payload = serializeForLicenseHash(original.data);
@@ -122,4 +122,14 @@ test("reference sorted and escaped licenseHash source", () => {
   const data = new Map([["z"," value"],["a.b","a=b:c"],["licenseHash","old"]]);
   assert.equal(serializeForLicenseHash(data),"a.b=a\\=b\\:c\nz=\\ value\n");
   assert.equal(escapeJavaProperty("A B",true),"A\\ B");
+});
+
+test("single PKCS8 demo private key yields valid DSA parameters", () => {
+  const params = readDemoDsaPrivateKey();
+  const privateKey = createPrivateKey({ key: Buffer.from(PRIVATE_KEY_STR, "base64"), format:"der",type:"pkcs8" });
+  const dsa = privateKey.asymmetricKeyType;
+  assert.equal(dsa, "dsa");
+  assert.ok(params.p > params.q);
+  assert.ok(params.g > 1n);
+  assert.ok(params.x > 0n && params.x < params.q);
 });
