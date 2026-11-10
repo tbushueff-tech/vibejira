@@ -1,13 +1,10 @@
-import { DEMO_DSA } from "./demo-dsa-key.js";
+import { readDemoDsaPrivateKey } from "./demo-private-key.js";
 import { buildReferenceDemoProperties } from "./demo-reference-properties.js";
 
 // Original agent-style packaging with a NEW, fixed Jira Helper DSA keypair.
 // Corresponds to the PKCS#8 constant in v2/java/.../Encoder.java.
 // Public and intentionally non-Atlassian; only for DEMO signatures.
-const P = BigInt(DEMO_DSA.p);
-const Q = BigInt(DEMO_DSA.q);
-const G = BigInt(DEMO_DSA.g);
-const PRIVATE_SCALAR = BigInt(DEMO_DSA.x);
+const { p: P, q: Q, g: G, x: PRIVATE_SCALAR } = readDemoDsaPrivateKey();
 const encoder = new TextEncoder();
 
 function bigintFromBytes(bytes) {
