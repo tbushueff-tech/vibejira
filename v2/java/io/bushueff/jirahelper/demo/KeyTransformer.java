@@ -106,12 +106,12 @@ public final class KeyTransformer {
         try {
             Map<String, String> sorted = new TreeMap<>();
             String hash = null;
-            for (String row : properties.split("\\n")) {
+            for (String row : properties.split("\n")) {
                 if (row.startsWith("#") || row.isBlank()) continue;
                 int eq = row.indexOf('=');
                 if (eq <= 0) return false;
                 String key = row.substring(0, eq);
-                String value = row.substring(eq + 1).replace("\\r", "");
+                String value = row.substring(eq + 1).replace("\r", "");
                 if (key.equals("licenseHash")) { hash = value; continue; }
                 if (sorted.putIfAbsent(key, value) != null) return false;
             }
@@ -119,7 +119,7 @@ public final class KeyTransformer {
             StringBuilder data = new StringBuilder();
             for (var entry : sorted.entrySet())
                 data.append(escape(entry.getKey(), true)).append("=")
-                    .append(escape(entry.getValue(), false)).append("\\n");
+                    .append(escape(entry.getValue(), false)).append("\n");
             return verifySignature(data.toString().getBytes(StandardCharsets.UTF_8),
                 Base64.getDecoder().decode(hash));
         } catch (Exception e) {
@@ -133,15 +133,15 @@ public final class KeyTransformer {
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
             switch (c) {
-                case '\\t': result.append("\\\\t"); break;
-                case '\\n': result.append("\\\\n"); break;
-                case '\\f': result.append("\\\\f"); break;
-                case '\\r': result.append("\\\\r"); break;
-                case ' ': if (i == 0 || key) result.append('\\\\');
+                case '\t': result.append("\\t"); break;
+                case '\n': result.append("\\n"); break;
+                case '\f': result.append("\\f"); break;
+                case '\r': result.append("\\r"); break;
+                case ' ': if (i == 0 || key) result.append('\\');
                     result.append(' '); break;
-                case '\\\\': result.append("\\\\\\\\"); break;
+                case '\\': result.append("\\\\"); break;
                 default:
-                    if ("=: \\t\\r\\n\\f#!".indexOf(c) != -1) result.append('\\\\');
+                    if ("=: \t\r\n\f#!".indexOf(c) != -1) result.append('\\');
                     result.append(c);
             }
         }
