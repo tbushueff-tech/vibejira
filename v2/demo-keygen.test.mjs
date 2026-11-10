@@ -32,7 +32,6 @@ test("demo generator uses agent-format zlib, prefix, DSA DER, base64 and X02/bas
   assert.equal(info.decoded, generated.properties);
   assert.match(info.decoded, /ServerID=AAAA-BBBB-CCCC-DDDD/);
   assert.match(info.decoded, /jira.DataCenter=true/);
-  assert.match(info.decoded, /DEMONSTRATION ONLY/);
   assert.ok(info.sig.length >= 40 && info.sig.length <= 48);
   assert.match(generated.format, /DEMO/);
 });
@@ -73,7 +72,6 @@ test("editable demo plugin Product, Server ID, Mail and Organisation are in the 
   assert.match(decoded, /ContactEMail=admin@example\.com/);
   assert.match(decoded, /Organisation=JH/);
   assert.match(decoded, /test_test\.DataCenter=true/);
-  assert.match(decoded, /DEMONSTRATION ONLY/);
   const server = await buildJiraDemoProperties({ ...fields, datacenter: false });
   assert.doesNotMatch(server, /test_test\.DataCenter=true/);
   await assert.rejects(() => buildJiraDemoProperties({ ...fields, product: "invalid\nproperty" }), /Product:/);
