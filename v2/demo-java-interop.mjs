@@ -4,16 +4,16 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { createPublicKey, verify } from "node:crypto";
+import { createPrivateKey, createPublicKey, verify } from "node:crypto";
 import { inflateSync } from "node:zlib";
 import assert from "node:assert/strict";
-import { DEMO_DSA } from "./demo-dsa-key.js";
+import { PRIVATE_KEY_STR, readDemoDsaPrivateKey } from "./demo-private-key.js";
 import { generateJiraDemoKey } from "./demo-keygen.js";
 
 const folder = mkdtempSync(join(tmpdir(), "jira-demo-"));
 const javaClass = "io.bushueff.jirahelper.demo.Encoder";
 const source = "v2/java/io/bushueff/jirahelper/demo/Encoder.java";
-const publicKey = createPublicKey({key:Buffer.from(DEMO_DSA.publicSpkiBase64,"base64"),format:"der",type:"spki"});
+const publicKey = createPublicKey(createPrivateKey({key:Buffer.from(PRIVATE_KEY_STR,"base64"),format:"der",type:"pkcs8"}));
 
 function unpack(license) {
   const compact = license.replace(/\s/g, "");
@@ -30,6 +30,9 @@ function unpack(license) {
   return { properties: inflateSync(content.subarray(5)).toString("utf8"), compressed: content.subarray(5), content };
 }
 try {
+  const javaSource = (await import("node:fs")).readFileSync(source,"utf8");
+  const actual = javaSource.match(/PRIVATE_KEY_STR\s*=\s*"([^"]+)"/)?.[1];
+  assert.equal(actual,PRIVATE_KEY_STR,"Browser PKCS8 key must match Java Encoder PRIVATE_KEY_STR");
   execFileSync("javac",["-d",folder,source],{stdio:"pipe"});
   const properties = "#DEMONSTRATION ONLY\nServerID=DEMO-123\nDescription=Not an Atlassian license\n";
   const input = join(folder,"properties.txt");
