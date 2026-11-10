@@ -1,6 +1,6 @@
 // Compare the Java Encoder's hard-coded PKCS#8 private key against the
 // browser's fixed DSA public key (and the same agent-style packaging).
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -27,7 +27,7 @@ function unpack(license) {
   const signature = data.subarray(4+length);
   assert.deepEqual([...content.subarray(0,5)],[13,14,12,10,15]);
   assert.equal(verify("sha1",content,publicKey,signature),true);
-  return inflateSync(content.subarray(5)).toString("utf8");
+  return { properties: inflateSync(content.subarray(5)).toString("utf8"), compressed: content.subarray(5), content };
 }
 try {
   execFileSync("javac",["-d",folder,source],{stdio:"pipe"});
@@ -35,12 +35,24 @@ try {
   const input = join(folder,"properties.txt");
   writeFileSync(input,properties,"utf8");
   const output = execFileSync("java",["-cp",folder,javaClass,input],{encoding:"utf8"});
-  assert.equal(unpack(output),properties);
+  assert.equal(unpack(output).properties,properties);
   const fromBrowser = await generateJiraDemoKey({
     serverId:"DEMO-123", email:"demo@example.org", organisation:"Example"
   });
-  assert.equal(unpack(fromBrowser.key),fromBrowser.properties);
-  console.log("Java PKCS#8 key and browser fixed DSA scalar both verify against matching public key");
+  assert.equal(unpack(fromBrowser.key).properties,fromBrowser.properties);
+
+  // Verify byte-for-byte packing of the same demonstration UTF-8 input.
+  // DSA signatures vary because signing uses fresh random nonces.
+  const browserPropertiesFile = join(folder,"browser-properties.txt");
+  writeFileSync(browserPropertiesFile,fromBrowser.properties,"utf8");
+  const javaFromBrowser = execFileSync("java",
+    ["-cp",folder,javaClass,browserPropertiesFile],{encoding:"utf8"});
+  const javaEnvelope = unpack(javaFromBrowser);
+  const browserEnvelope = unpack(fromBrowser.key);
+  assert.deepEqual(javaEnvelope.content, browserEnvelope.content,
+    "Java and JS must produce identical prefix and zlib payload for identical demo text");
+  assert.equal(javaEnvelope.properties,browserEnvelope.properties);
+  console.log("Java and JS compression and prefix agree byte-for-byte; both signatures verify under our own DSA public key");
 } finally {
   rmSync(folder,{recursive:true,force:true});
 }
