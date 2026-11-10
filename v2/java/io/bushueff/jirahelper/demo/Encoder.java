@@ -21,7 +21,7 @@ import java.util.zip.DeflaterOutputStream;
  * No Java Agent, patching code or third-party dependencies.
  */
 public final class Encoder {
-    private static final String PRIVATE_KEY_STR = "MIIBSwIBADCCASwGByqGSM44BAEwggEfAoGBAP1/U4EddRIpUt9KnC7s5Of2EbdSPO9EAMMeP4C2USZpRV1AIlH7WT2NWPq/xfW6MPbLm1Vs14E7gB00b/JmYLdrmVClpJ+f6AR7ECLCT7up1/63xhv4O1fnxqimFQ8E+4P208UewwI1VBNaFpEy9nXzrith1yrv8iIDGZ3RSAHHAhUAl2BQjxUjC8yykrmCouuEC/BYHPUCgYEA9+GghdabPd7LvKtcNrhXuXmUr7v6OuqC+VdMCz0HgmdRWVeOutRZT+ZxBxCBgLRJFnEj6EwoFhO3zwkyjMim4TwWeotUfI0o4KOuHiuzpnWRbqN/C/ohNWLx+2J6ASQ7zKTxvqhRkImog9/hWuWfBpKLZl6Ae1UlZAFMO/7PSSoEFgIUNYsbkapILzW8VhfGrU4eHo6/Dqw=";
+    private static final String PRIVATE_KEY_STR = "MIIBSwIBADCCASsGByqGSM44BAEwggEeAoGBANPMMT1MJ0BQS8to4L0mkn/axc+uyX8outLtcwm1fk1d57QXqzaiRPiQ4Em7mf9UnjFqZ2UsgnQxwkDNacjpERz2DR683SpzyW4TpZeW/icj5Jv1AGlsM/5+XQ75gEhm71nh+kWzTHS1nI5Hr4cHvHlL3Lq+ApXkHI3VgwTNn4CFAhUA5fiYMZp1UOWbOU+3VF6L7JrfelUCgYA4d8GTJkReq0cyYDSF3Y7FzWbWe2JfWyottKWJknPCpfPFUkPGYphtrZI/0EgHnsCtj+hF5O/PulTHnCuHKJHUODtIcxQNkPpVC0u9JiHD9kgNmPJofoRxATtWDV60OW9IUnOf5dSjhh5YqPDu/SFcSDDJv0bqqwMP/lWLNcbUewQXAhUAxlG4MTJYTi8nIkRuXfLdrOHgHR4=";
 
     private static final PrivateKey PRIVATE_KEY = importKey();
 
