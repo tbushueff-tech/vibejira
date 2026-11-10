@@ -1,0 +1,30 @@
+name: Demo Key Verifier CI
+on:
+  push:
+    branches: [feature/demo-key-verifier]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Tests
+        run: |
+          npm test
+          node --test v2/app.test.mjs v2/demo-keygen.test.mjs
+          node v2/demo-java-interop.mjs
+          node v2/demo-key-verifier.test.mjs
+      - name: Browser smoke
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8099 --bind 127.0.0.1 >/tmp/demo-http.log 2>&1 &
+          node v2/browser-smoke.mjs
