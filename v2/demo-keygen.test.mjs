@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { inflateSync } from "node:zlib";
+import { createPublicKey, verify as verifySignature } from "node:crypto";
+import { DEMO_DSA } from "./demo-dsa-key.js";
 import { buildJiraDemoProperties, generateJiraDemoKey } from "./demo-keygen.js";
 
 function inspect(key) {
@@ -18,7 +20,7 @@ function inspect(key) {
   assert.equal(sig[1], sig.length - 2);
   assert.equal(sig[2], 0x02);
   const decoded = inflateSync(body.subarray(5)).toString("utf8");
-  return { decoded, sig, length };
+  return { decoded, sig, length, body };
 }
 const fields = {serverId:"AAAA-BBBB-CCCC-DDDD",email:"a@example.com",
   organisation:"Example ltd",name:"Developer",datacenter:true};
@@ -40,4 +42,13 @@ test("each demo output has a new non-Atlassian signature", async() => {
 });
 test("generator validates required metadata", async() => {
   assert.throws(() => buildJiraDemoProperties({ serverId:"",email:"",organisation:"" }),/Server ID/);
+});
+
+test("every browser-generated signature verifies against the fixed public DSA key", async () => {
+  const pub = createPublicKey({ key: Buffer.from(DEMO_DSA.publicSpkiBase64, "base64"), format: "der", type: "spki" });
+  assert.equal(pub.asymmetricKeyType, "dsa");
+  for (let i = 0; i < 5; i++) {
+    const {body, sig} = inspect((await generateJiraDemoKey(fields)).key);
+    assert.equal(verifySignature("sha1", body, pub, sig), true, "signature must verify under the same public key");
+  }
 });
