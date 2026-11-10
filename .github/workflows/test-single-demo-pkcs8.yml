@@ -1,0 +1,30 @@
+name: Single demo PKCS8 key tests
+on:
+  push:
+    branches: [feature/single-demo-pkcs8-key]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Unit and Java interop checks
+        run: |
+          npm test
+          node --test v2/app.test.mjs v2/demo-keygen.test.mjs
+          node v2/demo-java-interop.mjs
+          test ! -e v2/demo-dsa-key.js
+      - name: Browser regression
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8099 --bind 127.0.0.1 >/tmp/helper-http.log 2>&1 &
+          node v2/browser-smoke.mjs
