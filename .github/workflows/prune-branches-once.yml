@@ -1,0 +1,51 @@
+name: One-time cleanup of obsolete Jira Helper branches
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/prune-branches-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    if: github.repository == 'tbushueff-tech/vibejira'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check approved reference commit before removing old branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git_main=$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')
+          stable=$(gh api "repos/$GITHUB_REPOSITORY/branches/stable-v2-etalon-2026-11-10" --jq '.commit.sha')
+          if [ "$stable" != "cf28f768470e85a8d7a5b5c2bccb4a4d134c8e2d" ]; then
+            echo "Etalon branch moved; refusing cleanup"
+            exit 1
+          fi
+          if [ -z "$git_main" ]; then exit 1; fi
+          echo "main=$git_main stable=$stable"
+      - name: Delete only explicitly enumerated obsolete refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branches=(
+            'backup-before-cloudflare-only-2026-11-09'
+            'backup-before-fixes-2026-11-10'
+            'backup-before-friday-rollback-2026-11-09'
+            'backup-before-rollback-2026-11-09'
+            'backup-before-second-rollback-2026-11-09'
+            'backup-before-v2-prod-2026-11-10'
+            'before-library-restore-2026-11-09'
+            'fix/review-2026-11-10'
+            'react-migration'
+            'release-v2-prod-2026-11-10'
+            'restore-library-tested-2026-11-09'
+            'rewrite-clean-v2'
+          )
+          for branch in "${branches[@]}"; do
+            echo "Removing obsolete branch: $branch"
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
+          done
