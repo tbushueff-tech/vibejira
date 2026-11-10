@@ -324,16 +324,38 @@ async function handleLibrary(request, env, username, url) {
     const prefix = libraryPrefix(username);
     const cursor = url.searchParams.get("cursor") || undefined;
     const page = await env.USER_STORE.list({ prefix, cursor, limit: LIBRARY_PAGE_SIZE });
-    const items = await Promise.all(page.keys.map(async key => {
-      const raw = await env.USER_STORE.get(key.name);
-      if (!raw) return null; // Deleted between list and read.
-      try {
-        const item = JSON.parse(raw);
-        return validLibraryItem(item) ? item : null;
-      } catch { return null; }
-    }));
-    return json({ ok: true, items: items.filter(Boolean),
+    // Only IDs in this response: large encrypted code never travels in one
+    // response (corporate proxies may stall while sending JSON >6 KiB).
+    const items = page.keys.map(key => ({ id: key.name.slice(prefix.length) }))
+      .filter(item => LIBRARY_ID.test(item.id));
+    return json({ ok: true, items,
       nextCursor: page.list_complete ? null : page.cursor || null }, 200);
+  }
+  if (request.method === "GET" && url.pathname.startsWith("/library/")) {
+    const id = url.pathname.slice("/library/".length);
+    if (!LIBRARY_ID.test(id)) return json({ error: "Неверный идентификатор" }, 400);
+    const raw = await env.USER_STORE.get(libraryKey(username, id));
+    if (!raw) return json({ error: "Запись не найдена" }, 404);
+    let existing;
+    try { existing = JSON.parse(raw); }
+    catch { return json({ error: "Повреждённая запись" }, 500); }
+    if (!validLibraryItem(existing)) return json({ error: "Повреждённая запись" }, 500);
+    const body = JSON.stringify(existing);
+    if (url.searchParams.get("meta") === "1") {
+      return json({ v: 3, total: body.length, revision: existing.revision }, 200);
+    }
+    const rawOffset = url.searchParams.get("chunk");
+    if (!/^(0|[1-9][0-9]*)$/.test(rawOffset || "")) {
+      return json({ error: "Неверное смещение фрагмента" }, 400);
+    }
+    const offset = Number(rawOffset);
+    if (!Number.isSafeInteger(offset) || offset >= body.length) {
+      return json({ error: "Смещение за пределами записи" }, 416);
+    }
+    const next = Math.min(offset + 2048, body.length);
+    return json({ v: 3, revision: existing.revision,
+      total: body.length, offset, chunk: body.slice(offset, next),
+      next: next < body.length ? next : null }, 200);
   }
   if (request.method === "POST" && url.pathname === "/library") {
     const text = await request.text();
