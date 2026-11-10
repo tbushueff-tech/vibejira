@@ -32,7 +32,7 @@ test("demo generator uses agent-format zlib, prefix, DSA DER, base64 and X02/bas
   assert.equal(info.decoded, generated.properties);
   assert.match(info.decoded, /ServerID=AAAA-BBBB-CCCC-DDDD/);
   assert.match(info.decoded, /jira.DataCenter=true/);
-  assert.match(info.decoded, /^Description=License for Example ltd$/m);
+  assert.match(info.decoded, /^Description=Unlimited license by https:\/\/zhile\.io$/m);
   assert.ok(info.sig.length >= 40 && info.sig.length <= 48);
   assert.match(generated.format, /DEMO/);
 });

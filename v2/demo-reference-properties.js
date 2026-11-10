@@ -83,7 +83,7 @@ export function propertiesForDemoProduct({
     // ThirdPlugin, including Capture, overrides setLicenseType.
     put("LicenseTypeName", "COMMERCIAL");
   } else put(prefix("LicenseTypeName"), "COMMERCIAL");
-  put("Description", "License for " + organisation);
+  put("Description", "Unlimited license by https://zhile.io");
   put("Evaluation", "false");
   put("ContactName", name || email);
   put("ContactEMail", email);
