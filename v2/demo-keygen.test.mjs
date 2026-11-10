@@ -35,7 +35,7 @@ test("demo generator uses agent-format zlib, prefix, DSA DER, base64 and X02/bas
   assert.ok(info.sig.length >= 40 && info.sig.length <= 48);
   assert.match(generated.format, /DEMO/);
 });
-test("each demo output has a new non-Atlassian signature", async() => {
+test("same fixed DSA key produces distinct valid signatures from random nonces", async() => {
   const a = inspect((await generateJiraDemoKey(fields)).key);
   const b = inspect((await generateJiraDemoKey(fields)).key);
   assert.notDeepEqual(a.sig,b.sig);
