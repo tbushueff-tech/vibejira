@@ -271,6 +271,7 @@ export function createLibrary({ api, session, notify, copyText, onTabChange }) {
   tabLibrary.addEventListener("click", () => {
     $("search").value = ""; search = ""; switchTo("library");
   });
+  $("library-refresh").addEventListener("click", () => refresh());
   form.addEventListener("submit", onSubmit);
   cancelButton.addEventListener("click", cancelEdit);
 
