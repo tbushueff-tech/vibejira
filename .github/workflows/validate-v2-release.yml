@@ -1,0 +1,44 @@
+name: Validate Jira Helper V2 production release
+on:
+  push:
+    branches: [release-v2-prod-2026-11-10]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate code syntax
+        run: |
+          node --check worker/index.js
+          node --check v2/api.js
+          node --check v2/crypto.js
+          node --check v2/app.js
+      - name: Run old and new integration tests
+        run: |
+          npm test
+          node --test v2/app.test.mjs
+      - name: Install headless browser
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Verify reload after encrypted save in Chromium
+        run: |
+          python3 -m http.server 8099 --bind 127.0.0.1 > /tmp/v2-http.log 2>&1 &
+          node v2/browser-smoke.mjs
+      - name: Check integration
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const html = fs.readFileSync('index.html','utf8');
+          if (!html.includes('<script type="module" src="./v2/app.js"></script>')) throw Error('V2 not loaded');
+          if (html.includes('async function loadGithub')) throw Error('Legacy sync remains');
+          const worker = fs.readFileSync('worker/index.js','utf8');
+          for (const part of ['"meta"','"chunk"','baseRevision'])
+            if (!worker.includes(part)) throw Error('Missing Worker API: '+part);
+          NODE
