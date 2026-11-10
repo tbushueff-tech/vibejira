@@ -205,3 +205,32 @@ test("OPTIONS: allowed origin gets 204, others 403", async () => {
   assert.equal((await call("/", "OPTIONS")).status, 204);
   assert.equal((await call("/", "OPTIONS", undefined, undefined, "https://evil.example")).status, 403);
 });
+
+test("V2 chunk reader reconstructs existing numeric-revision KV without changing it", async () => {
+  const { env, call, token } = await registered("chunkuser");
+  const many = Array.from({length: 110}, (_, i) => item("entry-"+i));
+  const result = await call("/", "POST", {v:2, baseRevision:0, items:many}, token);
+  assert.equal(result.status, 200);
+  const before = env.store.get("buffer:chunkuser");
+  const meta = await call("/?meta=1", "GET", undefined, token);
+  assert.equal(meta.status, 200);
+  assert.equal(meta.data.revision, 1);
+  const parts = [];
+  let offset = 0;
+  while(offset < meta.data.total) {
+    const part = await call("/?chunk=" + offset, "GET", undefined, token);
+    assert.equal(part.status, 200);
+    assert.equal(part.data.revision, 1);
+    assert.equal(part.data.offset, offset);
+    assert.ok(part.data.chunk.length <= 2048);
+    parts.push(part.data.chunk);
+    offset += part.data.chunk.length;
+  }
+  const all = JSON.parse(parts.join(""));
+  assert.equal(all.rev, 1);
+  assert.equal(all.items.length, 110);
+  assert.deepEqual(all, (await call("/", "GET", undefined, token)).data);
+  assert.equal(env.store.get("buffer:chunkuser"), before);
+  assert.equal((await call("/?chunk=invalid", "GET", undefined, token)).status, 400);
+  assert.equal((await call("/?meta=1", "GET")).status, 401);
+});
