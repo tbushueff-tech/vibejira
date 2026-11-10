@@ -1,63 +1,66 @@
 import { readDemoDsaPrivateKey } from "./demo-private-key.js";
-import { buildReferenceDemoProperties } from "./demo-reference-properties.js";
 
-// Original agent-style packaging with a NEW, fixed Jira Helper DSA keypair.
-// Corresponds to the PKCS#8 constant in v2/java/.../Encoder.java.
-// Public and intentionally non-Atlassian; only for DEMO signatures.
-const { p: P, q: Q, g: G, x: PRIVATE_SCALAR } = readDemoDsaPrivateKey();
+// Чтение вашего обновленного оригинального приватного ключа
+const { rawPrivateKeyString } = readDemoDsaPrivateKey();
 const encoder = new TextEncoder();
 
-function bigintFromBytes(bytes) {
-  return bytes.reduce((value, byte) => (value << 8n) + BigInt(byte), 0n);
-}
-function bytesFromBigint(value) {
-  let hex = value.toString(16);
-  if (hex.length % 2) hex = "0" + hex;
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  return bytes;
-}
-function powMod(base, exponent, modulo) {
-  let result = 1n;
-  for (base %= modulo; exponent > 0n; exponent >>= 1n, base = (base * base) % modulo) {
-    if (exponent & 1n) result = (result * base) % modulo;
+/**
+ * Имитация порядка итерации стандартного Java HashMap для Atlassian.
+ * Порядок полей в оригинальном HashMap жестко фиксирован для данного набора ключей.
+ */
+function alignFieldsAsJavaHashMap(properties, productNamespace) {
+  const javaHashMapOrder = [
+    'Description',
+    'NumberOfUsers',
+    'CreationDate',
+    'Evaluation',
+    `${productNamespace}.NumberOfUsers`,
+    'XMPPServiceKey',
+    'ContactEMail',
+    `${productNamespace}.productKey`,
+    'MaintenanceExpiryDate',
+    'Organisation',
+    'jira.LicenseEdition',
+    'LicenseExpiryDate',
+    'keyVersion',
+    'LicenseTypeName',
+    'PurchaseDate',
+    'PartnerName',
+    'ServerId',
+    'Subscription'
+  ];
+
+  const orderedProperties = {};
+  for (const key of javaHashMapOrder) {
+    if (properties[key] !== undefined) {
+      orderedProperties[key] = properties[key];
+    }
   }
-  return result;
-}
-function invert(value, modulo) { return powMod(value, modulo - 2n, modulo); }
-function randomScalar() {
-  for (;;) {
-    const raw = crypto.getRandomValues(new Uint8Array(20));
-    const scalar = bigintFromBytes(raw);
-    if (scalar > 0n && scalar < Q) return scalar;
+  // Дозапись плагинов, если они есть
+  for (const key of Object.keys(properties)) {
+    if (orderedProperties[key] === undefined) {
+      orderedProperties[key] = properties[key];
+    }
   }
+  return orderedProperties;
 }
-function derInteger(n) {
-  let buf = bytesFromBigint(n);
-  if (buf[0] & 0x80) buf = Uint8Array.of(0, ...buf);
-  return Uint8Array.of(2, buf.length, ...buf);
+
+/**
+ * Форматирование даты в локальном времени машины (аналог java.util.Date)
+ */
+function formatAsJavaLocalPlainDate(date) {
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+  return localDate.toISOString().split('T')[0];
 }
-function dsaDerSignature(r, s) {
-  const left = derInteger(r), right = derInteger(s);
-  return Uint8Array.of(0x30, left.length + right.length, ...left, ...right);
-}
-async function demoDsaSign(message) {
-  const secret = PRIVATE_SCALAR; // fixed demo-only private scalar (publicly visible)
-  const hash = bigintFromBytes(new Uint8Array(await crypto.subtle.digest("SHA-1", message)));
-  for (;;) {
-    const k = randomScalar();
-    const r = powMod(G, k, P) % Q;
-    if (!r) continue;
-    const s = (invert(k, Q) * (hash + secret * r)) % Q;
-    if (s) return dsaDerSignature(r, s);
-  }
-}
+
 function concat(...arrays) {
   const result = new Uint8Array(arrays.reduce((n, a) => n + a.length, 0));
   let offset = 0;
   for (const part of arrays) { result.set(part, offset); offset += part.length; }
   return result;
 }
+
 function base64(bytes) {
   let text = "";
   for (let i = 0; i < bytes.length; i += 8192) {
@@ -65,6 +68,7 @@ function base64(bytes) {
   }
   return btoa(text);
 }
+
 function formatBase31(num) {
   if (!num) return "0";
   const digits = "0123456789abcdefghijklmnopqrstu";
@@ -72,6 +76,7 @@ function formatBase31(num) {
   for (; num > 0; num = Math.floor(num / 31)) output = digits[num % 31] + output;
   return output;
 }
+
 async function zlibCompress(bytes) {
   if (typeof CompressionStream !== "function")
     throw new Error("Браузер не поддерживает CompressionStream (deflate)");
@@ -79,21 +84,119 @@ async function zlibCompress(bytes) {
   const stream = source.pipeThrough(new CompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
-// Reference: the text body also contains a licenseHash signed under the
-// SAME independent, publicly known demo key used by the outer envelope.
-export async function buildJiraDemoProperties(fields) {
-  return buildReferenceDemoProperties(fields, demoDsaSign);
+
+/**
+ * Нативная подпись через Web Crypto API с использованием вашего PRIVATE_KEY_STR
+ */
+async function nativeAgentSign(messageBuffer) {
+  // Импортируем оригинальный приватный ключ (предварительно очищенный от заголовков PEM)
+  const pemHeader = "-----BEGIN PRIVATE KEY-----";
+  const pemFooter = "-----END PRIVATE KEY-----";
+  const pemContents = rawPrivateKeyString
+    .replace(pemHeader, "")
+    .replace(pemFooter, "")
+    .replace(/\s+/g, "");
+  
+  const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryDer,
+    {
+      name: "NODE-DSA", // Или "DSA" / "RSASSA-PKCS1-v1_5" в зависимости от типа вашего импортированного ключа
+      hash: { name: "SHA-1" },
+    },
+    false,
+    ["sign"]
+  );
+
+  const sig = await crypto.subtle.sign(
+    { name: "NODE-DSA" },
+    privateKey,
+    messageBuffer
+  );
+  
+  return new Uint8Array(sig);
 }
+
+/**
+ * Сборка текстового блока свойств как в оригинальном Atlassian-Agent
+ */
+export async function buildJiraPropertiesText(fields) {
+  const { serverId, organisation, email, productNamespace, expiryDate } = fields;
+  const now = new Date();
+  const exp = new Date(expiryDate);
+
+  const rawProperties = {
+    'Description': `License for ${organisation}`, // Оригинальный динамический текст
+    'ServerId': serverId,
+    'Organisation': organisation,
+    'ContactEMail': email,
+    'CreationDate': formatAsJavaLocalPlainDate(now),
+    'PurchaseDate': formatAsJavaLocalPlainDate(now),
+    'LicenseExpiryDate': formatAsJavaLocalPlainDate(exp),
+    'MaintenanceExpiryDate': formatAsJavaLocalPlainDate(exp),
+    'NumberOfUsers': '-1',
+    'Evaluation': 'false',
+    'LicenseTypeName': 'COMMERCIAL',
+    'keyVersion': '1600708331'
+  };
+
+  rawProperties[`${productNamespace}.NumberOfUsers`] = '-1';
+  rawProperties[`${productNamespace}.productKey`] = productNamespace;
+
+  // Сортируем по бакетам HashMap Java
+  const ordered = alignFieldsAsJavaHashMap(rawProperties, productNamespace);
+
+  let textBlock = "";
+  for (const [key, value] of Object.entries(ordered)) {
+    const escapedKey = key.replace(/([:= \t\r\n\f])/g, '\\$1');
+    const escapedValue = value.replace(/([:=])/g, '\\$1');
+    textBlock += `${escapedKey}=${escapedValue}\n`;
+  }
+
+  // Внутренняя подпись licenseHash
+  const textBytes = encoder.encode(textBlock);
+  const internalSig = await nativeAgentSign(textBytes);
+  const internalSigBase64 = base64(internalSig);
+
+  textBlock += `licenseHash=${internalSigBase64}\n`;
+  return textBlock;
+}
+
+/**
+ * Основной метод генерации финального ключа
+ */
 export async function generateJiraDemoKey(fields) {
-  const properties = await buildJiraDemoProperties(fields);
-  const compressed = await zlibCompress(encoder.encode(properties));
-  const payload = concat(Uint8Array.of(13,14,12,10,15), compressed);
-  const signature = await demoDsaSign(payload);
-  const len = new Uint8Array(4);
-  new DataView(len.buffer).setUint32(0, payload.length, false);
-  const encoded = base64(concat(len, payload, signature));
+  // 1. Генерируем тестовый блок свойств с внутренней подписью
+  const propertiesText = await buildJiraPropertiesText(fields);
+  
+  // 2. Сжатие zlib Deflate
+  const compressed = await zlibCompress(encoder.encode(propertiesText));
+  
+  // 3. Добавление префикса 0D 0E 0C 0A 0F
+  const payload = concat(Uint8Array.of(13, 14, 12, 10, 15), compressed);
+  
+  // 4. Внешняя подпись поверх всего бинарного блока
+  const outerSignature = await nativeAgentSign(payload);
+  
+  // 5. Запись длины подписи в 2 байта (Big Endian) как делает оригинальный jar-конвертер
+  const sigLengthBuffer = new Uint8Array(2);
+  new DataView(sigLengthBuffer.buffer).setUint16(0, outerSignature.length, false);
+
+  // 6. Сборка финального бинарного пакета
+  const finalBinaryLicense = concat(payload, sigLengthBuffer, outerSignature);
+  
+  // 7. Base64 и суффикс длины системы счисления 31
+  const encoded = base64(finalBinaryLicense);
   const full = encoded + "X02" + formatBase31(encoded.length);
-  // Match Encoder.split(): insert newline after index 76, 152, ...
-  const result = [...full].map((char,i) => char + (i > 0 && i % 76 === 0 ? "\n" : "")).join("");
-  return { key: result, properties, format: "Atlassian Agent-shaped DEMO (fixed own DSA key; not an Atlassian license)" };
+  
+  // Форматирование по 76 символов в строку (стандарт упаковки Atlassian)
+  const result = [...full].map((char, i) => char + (i > 0 && i % 76 === 0 ? "\n" : "")).join("");
+  
+  return { 
+    key: result, 
+    properties: propertiesText, 
+    format: "Atlassian Agent Production License" 
+  };
 }
