@@ -407,9 +407,24 @@ button.google-ai-action[hidden] { display: none; }
 }
 .login-button { width: 100%; margin-top: 14px; min-height: 40px; }
 .guest-button { margin-top: 8px; width: 100%; }
-.login-proxy-option { display:flex; align-items:center; gap:10px; margin-top:14px; cursor:pointer; color:var(--fg); font-size:13px; }
-.login-proxy-option input { width:17px; height:17px; margin:0; flex:none; accent-color:var(--accent); }
-.login-proxy-hint { margin:4px 0 0 27px; color:var(--muted); font-size:12px; line-height:1.4; }
+.connection-choice { margin-top:16px; }
+.connection-choice-heading { color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.055em; text-transform:uppercase; margin-bottom:8px; }
+.connection-option { display:flex; align-items:center; gap:11px; border:1px solid var(--line); border-radius:10px; padding:12px; background:var(--surface); cursor:pointer; transition:border-color .15s, background-color .15s, box-shadow .15s; }
+.connection-option:hover { border-color:#a7b7d1; background:#f8faff; }
+.connection-option:has(.connection-toggle:checked) { border-color:#88aef5; background:#f5f9ff; }
+.connection-option:has(.connection-toggle:focus-visible) { outline:2px solid var(--accent); outline-offset:3px; }
+.connection-icon { display:grid; place-items:center; width:35px; height:35px; flex:none; border-radius:9px; background:#eaf1ff; color:#175cd3; }
+.connection-icon svg { width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.connection-copy { display:flex; flex:1; min-width:0; flex-direction:column; gap:3px; }
+.connection-title { color:var(--fg); font-size:13px; font-weight:650; }
+.connection-subtitle { color:var(--muted); font-size:11.5px; line-height:1.3; }
+.connection-toggle { appearance:none; -webkit-appearance:none; position:relative; width:42px; height:24px; flex:none; margin:0; border:1px solid #b9c1d1; border-radius:100px; background:#c5ccd8; cursor:pointer; transition:background-color .18s, border-color .18s; }
+.connection-toggle::before { content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 3px #0002; transition:transform .18s; }
+.connection-toggle:checked { background:var(--accent); border-color:var(--accent); }
+.connection-toggle:checked::before { transform:translateX(18px); }
+.connection-route { display:flex; align-items:center; gap:7px; margin:9px 2px 0; color:var(--muted); font-size:11.5px; line-height:1.35; }
+.connection-route::before { content:""; width:7px; height:7px; flex:none; background:#22a06b; border-radius:50%; }
+@media (prefers-reduced-motion: reduce) { .connection-option, .connection-toggle, .connection-toggle::before { transition:none; } }
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
@@ -680,8 +695,18 @@ header .brand, header .search, header .account-menu { min-width: 0; }
         <input type="password" id="login-password" autocomplete="current-password" required>
       </div>
     </div>
-    <label class="login-proxy-option" for="login-russian-proxy"><input type="checkbox" id="login-russian-proxy"> Вход через российский прокси</label>
-    <div class="login-proxy-hint">Без галочки — прямое подключение Cloudflare. Настройка сохранится на этом устройстве.</div>
+    <div class="connection-choice">
+      <div class="connection-choice-heading">Способ подключения</div>
+      <label class="connection-option" for="login-russian-proxy">
+        <span class="connection-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c3 3 4.5 6 4.5 9s-1.5 6-4.5 9M12 3c-3 3-4.5 6-4.5 9s1.5 6 4.5 9"></path></svg></span>
+        <span class="connection-copy">
+          <span class="connection-title">Российский прокси</span>
+          <span class="connection-subtitle">Для сетей с ограниченным доступом</span>
+        </span>
+        <input class="connection-toggle" type="checkbox" id="login-russian-proxy" aria-describedby="login-proxy-route">
+      </label>
+      <div class="connection-route" id="login-proxy-route" aria-live="polite">Подключение напрямую · Cloudflare</div>
+    </div>
     <button type="submit" class="primary login-button" id="login-button">Войти</button>
     <button type="button" class="ghost login-button" id="register-toggle">Регистрация</button>
     <button type="button" class="guest-button" id="guest-mode">Продолжить без регистрации</button>
