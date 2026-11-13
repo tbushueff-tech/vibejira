@@ -407,6 +407,9 @@ button.google-ai-action[hidden] { display: none; }
 }
 .login-button { width: 100%; margin-top: 14px; min-height: 40px; }
 .guest-button { margin-top: 8px; width: 100%; }
+.login-proxy-option { display:flex; align-items:center; gap:10px; margin-top:14px; cursor:pointer; color:var(--fg); font-size:13px; }
+.login-proxy-option input { width:17px; height:17px; margin:0; flex:none; accent-color:var(--accent); }
+.login-proxy-hint { margin:4px 0 0 27px; color:var(--muted); font-size:12px; line-height:1.4; }
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
@@ -677,6 +680,8 @@ header .brand, header .search, header .account-menu { min-width: 0; }
         <input type="password" id="login-password" autocomplete="current-password" required>
       </div>
     </div>
+    <label class="login-proxy-option" for="login-russian-proxy"><input type="checkbox" id="login-russian-proxy"> Вход через российский прокси</label>
+    <div class="login-proxy-hint">Без галочки — прямое подключение Cloudflare. Настройка сохранится на этом устройстве.</div>
     <button type="submit" class="primary login-button" id="login-button">Войти</button>
     <button type="button" class="ghost login-button" id="register-toggle">Регистрация</button>
     <button type="button" class="guest-button" id="guest-mode">Продолжить без регистрации</button>
