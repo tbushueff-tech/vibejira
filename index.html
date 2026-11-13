@@ -423,7 +423,10 @@ button.google-ai-action[hidden] { display: none; }
 .connection-toggle:checked { background:var(--accent); border-color:var(--accent); }
 .connection-toggle:checked::before { transform:translateX(18px); }
 .connection-route { display:flex; align-items:center; gap:7px; margin:9px 2px 0; color:var(--muted); font-size:11.5px; line-height:1.35; }
-.connection-route::before { content:""; width:7px; height:7px; flex:none; background:#22a06b; border-radius:50%; }
+.connection-route::before { content:""; width:7px; height:7px; flex:none; background:#97a0af; border-radius:50%; transition:background-color .18s ease; }
+.connection-route[data-status="connected"]::before { background:#22a06b; }
+.connection-route[data-status="disconnected"]::before { background:#de350b; }
+.connection-route[data-status="checking"]::before { background:#97a0af; }
 @media (prefers-reduced-motion: reduce) { .connection-option, .connection-toggle, .connection-toggle::before { transition:none; } }
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 60;
@@ -705,7 +708,7 @@ header .brand, header .search, header .account-menu { min-width: 0; }
         </span>
         <input class="connection-toggle" type="checkbox" id="login-russian-proxy" aria-describedby="login-proxy-route">
       </label>
-      <div class="connection-route" id="login-proxy-route" aria-live="polite">Подключение напрямую · Cloudflare</div>
+      <div class="connection-route" id="login-proxy-route" data-status="checking" role="status" aria-live="polite">Подключение напрямую · Cloudflare</div>
     </div>
     <button type="submit" class="primary login-button" id="login-button">Войти</button>
     <button type="button" class="ghost login-button" id="register-toggle">Регистрация</button>
