@@ -30,13 +30,13 @@ try {
   await page.locator("#login-user").fill("testuser");
   await page.locator("#login-password").fill("pass123456");
   await page.locator("#login-form").evaluate(form => form.requestSubmit());
-  await page.locator("#login-error").getByText("Test login rejected").waitFor();
+  await page.waitForFunction(() => document.querySelector("#login-error")?.textContent.includes("Test login rejected"));
   assert.ok(seen.some(url => url.startsWith(direct + "/auth/login")));
   assert.ok(!seen.some(url => url.startsWith(proxy)));
   seen.length = 0;
   await checkbox.check();
   await page.locator("#login-form").evaluate(form => form.requestSubmit());
-  await page.locator("#login-error").getByText("Test login rejected").waitFor();
+  await page.waitForFunction(() => document.querySelector("#login-error")?.textContent.includes("Test login rejected"));
   assert.ok(seen.some(url => url.startsWith(proxy + "/api.php?route=%2Fauth%2Flogin")));
   assert.ok(!seen.some(url => url.startsWith(direct)));
   await page.reload();
