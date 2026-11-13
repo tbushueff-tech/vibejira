@@ -20,7 +20,7 @@ test("proxy mode routes credentials, bearer auth and library calls through selec
   const oldFetch = globalThis.fetch, urls = [];
   globalThis.fetch = async (url, options) => {
     urls.push({url: String(url), method: options.method, headers: options.headers, body: options.body});
-    return new Response(JSON.stringify({ok:true}), {status:200, headers:{"Content-Type":"application/json"}});
+    return new Response(JSON.stringify({ok:true, items:[], nextCursor:null}), {status:200, headers:{"Content-Type":"application/json"}});
   };
   try {
     const api = new CloudApi({useProxy:true});
