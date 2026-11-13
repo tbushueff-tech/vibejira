@@ -44,7 +44,7 @@ $authPaths = [
 $route = $_GET['route'] ?? '';
 if (!is_string($route)) jsonError(404, 'Unknown API route');
 $allowed = isset($authPaths[$route]) && in_array($method, $authPaths[$route], true);
-if (!$allowed && preg_match('~^/library/[A-Za-z0-9._~-]{1,150}$~D', $route)) {
+if (!$allowed && preg_match('~^/library/[A-Za-z0-9_-]{1,64}$~D', $route)) {
     $allowed = in_array($method, ['GET', 'DELETE'], true);
 }
 if (!$allowed) jsonError(404, 'Unknown API route');
