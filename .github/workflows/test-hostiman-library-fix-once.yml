@@ -1,0 +1,32 @@
+name: Test HostiMan library UUID route fix
+on:
+  push:
+    branches: [fix/hostiman-library-id-route]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing app, proxy and Worker tests
+        run: node --test v2/app.test.mjs v2/proxy-mode.test.mjs worker/test/*.test.mjs
+      - name: PHP route smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l hostiman/api.php
+          php -S 127.0.0.1:8077 -t hostiman >/tmp/php-relay.log 2>&1 &
+          sleep 1
+          id="57a8dc60-3e44-4bbb-b369-397595eb5be3"
+          curl -sS -D /tmp/headers -o /tmp/body -G --data-urlencode "route=/library/$id" --data-urlencode 'meta=1' 'http://127.0.0.1:8077/api.php'
+          echo 'Response status and body:'
+          grep -i '^HTTP/' /tmp/headers
+          head -c 250 /tmp/body; echo
+          if grep -q 'Unknown API route' /tmp/body; then echo 'Library route rejected'; exit 1; fi
+          if grep -q 'preg_match' /tmp/php-relay.log; then echo 'PHP regex warning'; exit 1; fi
+          curl -sS -o /tmp/body-invalid -G --data-urlencode 'route=/library/invalid!id' 'http://127.0.0.1:8077/api.php'
+          grep -q 'Unknown API route' /tmp/body-invalid
