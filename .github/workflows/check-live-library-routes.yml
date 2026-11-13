@@ -1,0 +1,21 @@
+name: Check live HostiMan library routes
+on:
+  push:
+    branches: [check/hostiman-relay-20261113]
+    paths: [.github/workflows/check-live-library-routes.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Probe routes without secrets
+        shell: bash
+        run: |
+          for path in '/auth/me' '/library' '/library?cursor=test' '/library/test?meta=1' '/library/test?chunk=0' '/?meta=1'; do
+            route="${path%%\?*}"
+            suffix=""
+            if [[ "$path" == *"?"* ]]; then suffix="&${path#*\?}"; fi
+            code=$(curl -sS --max-time 20 -o /tmp/body -w '%{http_code}' -G --data-urlencode "route=$route" "https://tbhelper.h1n.ru/api.php${suffix:+?${suffix#&}}")
+            echo "$path -> HTTP $code: $(head -c 160 /tmp/body)"
+          done
