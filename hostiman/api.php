@@ -66,8 +66,8 @@ $authorization = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHO
 if ($authorization !== '') $headers[] = 'Authorization: ' . $authorization;
 $body = null;
 if ($method === 'POST') {
-    $body = file_get_contents('php://input', false, null, 0, 262145);
-    if ($body === false || strlen($body) > 262144) jsonError(413, 'Request too large');
+    $body = file_get_contents('php://input', false, null, 0, 425001);
+    if ($body === false || strlen($body) > 425000) jsonError(413, 'Request too large');
     $headers[] = 'Content-Type: text/plain;charset=UTF-8';
 }
 $url = HELPER_WORKER . $route . ($query ? '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986) : '');
