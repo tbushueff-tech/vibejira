@@ -3,6 +3,7 @@ import { chromium } from "playwright";
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
 const seen = [];
+let proxyHealthy = true;
 const origin = "http://127.0.0.1:8099";
 const direct = "https://vibejira.t-bushueff.workers.dev";
 const proxy = "https://tbhelper.h1n.ru";
@@ -19,7 +20,12 @@ try {
       };
       if (request.method() === "OPTIONS")
         await route.fulfill({status:204,headers,body:""});
-      else
+      else if (new URL(request.url()).searchParams.get("route") === "/auth/me" ||
+        new URL(request.url()).pathname === "/auth/me") {
+        const fails = target === proxy && !proxyHealthy;
+        await route.fulfill({status:fails ? 503 : 401,headers,
+          body:JSON.stringify(fails ? {error:"Unavailable"} : {authenticated:false})});
+      } else
         await route.fulfill({status:401,headers,body:JSON.stringify({error:"Test login rejected"})});
     });
   }
@@ -27,7 +33,8 @@ try {
   const checkbox = page.locator("#login-russian-proxy");
   await checkbox.waitFor();
   assert.equal(await checkbox.isChecked(), false);
-  assert.match(await page.locator("#login-proxy-route").textContent(), /напрямую · Cloudflare/);
+  await page.waitForFunction(() => document.querySelector("#login-proxy-route")?.dataset.status === "connected");
+  assert.match(await page.locator("#login-proxy-route").textContent(), /Cloudflare · соединение есть/);
   await page.locator("#login-user").fill("testuser");
   await page.locator("#login-password").fill("pass123456");
   await page.locator("#login-form").evaluate(form => form.requestSubmit());
@@ -36,7 +43,8 @@ try {
   assert.ok(!seen.some(url => url.startsWith(proxy)));
   seen.length = 0;
   await checkbox.check();
-  assert.match(await page.locator("#login-proxy-route").textContent(), /HostiMan · Россия/);
+  await page.waitForFunction(() => document.querySelector("#login-proxy-route")?.dataset.status === "connected");
+  assert.match(await page.locator("#login-proxy-route").textContent(), /HostiMan · Россия · соединение есть/);
   await page.locator("#login-form").evaluate(form => form.requestSubmit());
   await page.waitForFunction(() => document.querySelector("#login-error")?.textContent.includes("Test login rejected"));
   assert.ok(seen.some(url => url.startsWith(proxy + "/api.php?route=%2Fauth%2Flogin")));
@@ -44,6 +52,13 @@ try {
   await page.reload();
   assert.equal(await page.locator("#login-russian-proxy").isChecked(), true);
   assert.match(await page.locator("#login-proxy-route").textContent(), /HostiMan · Россия/);
+  proxyHealthy = false;
+  await page.locator("#login-russian-proxy").uncheck();
+  await page.waitForFunction(() => document.querySelector("#login-proxy-route")?.dataset.status === "connected");
+  await page.locator("#login-russian-proxy").check();
+  await page.waitForFunction(() => document.querySelector("#login-proxy-route")?.dataset.status === "disconnected");
+  assert.match(await page.locator("#login-proxy-route").textContent(), /нет соединения/);
+  proxyHealthy = true;
   await page.locator("#login-russian-proxy").uncheck();
   await page.reload();
   assert.equal(await page.locator("#login-russian-proxy").isChecked(), false);

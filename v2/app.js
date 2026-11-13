@@ -406,19 +406,59 @@ async function logout() {
   loginScreen();
 }
 function bind() {
-  const updateConnectionLabel = () => {
-    view.proxyRoute.textContent = api.useProxy
-      ? "Подключение через HostiMan · Россия"
-      : "Подключение напрямую · Cloudflare";
+  let connectionCheckSequence = 0;
+  let connectionController = null;
+  let connectionTimeout = null;
+  const connectionName = () => api.useProxy ? "HostiMan · Россия" : "Cloudflare";
+  const showConnectionStatus = (status) => {
+    view.proxyRoute.dataset.status = status;
+    view.proxyRoute.textContent = (api.useProxy ? "Через " : "Напрямую · ") +
+      connectionName() + " · " +
+      (status === "connected" ? "соединение есть" :
+        status === "disconnected" ? "нет соединения" : "проверяем соединение…");
   };
+  async function checkConnection() {
+    const sequence = ++connectionCheckSequence;
+    if (connectionController) connectionController.abort();
+    if (connectionTimeout !== null) clearTimeout(connectionTimeout);
+    const controller = new AbortController();
+    connectionController = controller;
+    showConnectionStatus("checking");
+    connectionTimeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      // Never send the current session token or credentials in the health probe.
+      // An unauthenticated /auth/me response is expected to be HTTP 401.
+      const response = await fetch(api.endpoint("/auth/me"), {
+        method: "GET", headers: { Accept: "application/json" },
+        credentials: "omit", cache: "no-store", signal: controller.signal
+      });
+      const data = await response.json();
+      const reachable = (response.status === 401 || response.status === 200) &&
+        data && data.authenticated === false;
+      if (sequence === connectionCheckSequence)
+        showConnectionStatus(reachable ? "connected" : "disconnected");
+    } catch {
+      if (sequence === connectionCheckSequence) showConnectionStatus("disconnected");
+    } finally {
+      if (sequence === connectionCheckSequence) {
+        clearTimeout(connectionTimeout);
+        connectionTimeout = null;
+        connectionController = null;
+      }
+    }
+  }
   view.proxyMode.checked = api.useProxy;
-  updateConnectionLabel();
+  void checkConnection();
   view.proxyMode.addEventListener("change", () => {
     api.setProxyMode(view.proxyMode.checked);
     localStorage.setItem(PROXY_MODE_KEY, api.useProxy ? "1" : "0");
-    updateConnectionLabel();
+    void checkConnection();
     view.loginError.textContent = "";
   });
+  setInterval(() => {
+    if (view.login.style.display !== "none" && !document.hidden)
+      void checkConnection();
+  }, 30000);
   view.loginForm.addEventListener("submit", async event => {
     event.preventDefault();
     const username = view.loginUser.value.trim(), password = view.loginPassword.value;
