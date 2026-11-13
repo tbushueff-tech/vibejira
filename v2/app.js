@@ -24,7 +24,7 @@ api.setToken(state.token);
 const view = {
   login: $("login-screen"), loginForm: $("login-form"), loginUser: $("login-user"),
   loginPassword: $("login-password"), loginButton: $("login-button"), loginError: $("login-error"),
-  proxyMode: $("login-russian-proxy"),
+  proxyMode: $("login-russian-proxy"), proxyRoute: $("login-proxy-route"),
   registerToggle: $("register-toggle"), description: $("auth-description"),
   app: $("app"), status: $("sync-status"), list: $("list"), count: $("count"),
   search: $("search"), searchToggle: $("search-toggle"), searchPrev: $("search-prev"),
@@ -406,10 +406,17 @@ async function logout() {
   loginScreen();
 }
 function bind() {
+  const updateConnectionLabel = () => {
+    view.proxyRoute.textContent = api.useProxy
+      ? "Подключение через HostiMan · Россия"
+      : "Подключение напрямую · Cloudflare";
+  };
   view.proxyMode.checked = api.useProxy;
+  updateConnectionLabel();
   view.proxyMode.addEventListener("change", () => {
     api.setProxyMode(view.proxyMode.checked);
     localStorage.setItem(PROXY_MODE_KEY, api.useProxy ? "1" : "0");
+    updateConnectionLabel();
     view.loginError.textContent = "";
   });
   view.loginForm.addEventListener("submit", async event => {
