@@ -1,6 +1,7 @@
-// Jira Helper V2 — one Cloudflare endpoint, no anonymous reachability probes.
+// Jira Helper V2 — explicit routing only; no automatic proxy fallback.
 // All requests are authenticated using the signed bearer token.
 export const API_ORIGIN = "https://vibejira.t-bushueff.workers.dev";
+export const PROXY_ORIGIN = "https://tbhelper.h1n.ru/api.php";
 
 export class ApiError extends Error {
   constructor(message, status = 0) { super(message); this.name = "ApiError"; this.status = status; }
@@ -18,16 +19,22 @@ function timeoutController(ms, signal) {
 }
 
 export class CloudApi {
-  constructor() { this.token = ""; }
+  constructor({ useProxy = false } = {}) { this.token = ""; this.useProxy = Boolean(useProxy); }
   setToken(token) { this.token = token || ""; }
+  setProxyMode(enabled) { this.useProxy = Boolean(enabled); }
+  endpoint(path) {
+    return this.useProxy ? PROXY_ORIGIN + "?route=" + encodeURIComponent(path.split("?")[0]) +
+      (path.includes("?") ? "&" + path.slice(path.indexOf("?") + 1) : "") : API_ORIGIN + path;
+  }
 
   async request(path, { method = "GET", data, signal, timeoutMs = 30000 } = {}) {
     const timer = timeoutController(timeoutMs, signal);
+    const target = this.useProxy ? "российского прокси" : "Cloudflare";
     try {
       const headers = { Accept: "application/json" };
       if (this.token) headers.Authorization = "Bearer " + this.token;
       if (data !== undefined) headers["Content-Type"] = "text/plain;charset=UTF-8";
-      const response = await fetch(API_ORIGIN + path, {
+      const response = await fetch(this.endpoint(path), {
         method, headers, body: data === undefined ? undefined : JSON.stringify(data),
         credentials: "omit", cache: "no-store", signal: timer.controller.signal
       });
@@ -35,12 +42,12 @@ export class CloudApi {
       let parsed;
       try { parsed = body ? JSON.parse(body) : {}; }
       catch { throw new ApiError("Сервер прислал некорректный JSON", response.status); }
-      if (!response.ok) throw new ApiError(parsed.error || "Cloudflare HTTP " + response.status, response.status);
+      if (!response.ok) throw new ApiError(parsed.error || target + " HTTP " + response.status, response.status);
       return parsed;
     } catch (error) {
-      if (timer.controller.signal.aborted) throw new ApiError("Превышено время ожидания Cloudflare");
+      if (timer.controller.signal.aborted) throw new ApiError("Превышено время ожидания " + target);
       if (error instanceof ApiError) throw error;
-      throw new ApiError("Ошибка связи с Cloudflare: " + (error.message || String(error)));
+      throw new ApiError("Ошибка связи с " + target + ": " + (error.message || String(error)));
     } finally {
       timer.finish();
     }
