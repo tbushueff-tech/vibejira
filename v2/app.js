@@ -9,7 +9,8 @@ import { createLibrary } from "./library.js";
 // Jira Helper V2. No framework, keeps the existing HTML/CSS and element IDs.
 // The UI never treats a partial remote download as a valid cloud snapshot.
 const $ = id => document.getElementById(id);
-const api = new CloudApi();
+const PROXY_MODE_KEY = "helper-use-russian-proxy";
+const api = new CloudApi({ useProxy: localStorage.getItem(PROXY_MODE_KEY) === "1" });
 const WEEK = 7 * 86400000, FIVE_MINUTES = 300000;
 const TOKEN_KEY = "buffer_auth_token";
 const state = {
@@ -23,6 +24,7 @@ api.setToken(state.token);
 const view = {
   login: $("login-screen"), loginForm: $("login-form"), loginUser: $("login-user"),
   loginPassword: $("login-password"), loginButton: $("login-button"), loginError: $("login-error"),
+  proxyMode: $("login-russian-proxy"),
   registerToggle: $("register-toggle"), description: $("auth-description"),
   app: $("app"), status: $("sync-status"), list: $("list"), count: $("count"),
   search: $("search"), searchToggle: $("search-toggle"), searchPrev: $("search-prev"),
@@ -404,6 +406,12 @@ async function logout() {
   loginScreen();
 }
 function bind() {
+  view.proxyMode.checked = api.useProxy;
+  view.proxyMode.addEventListener("change", () => {
+    api.setProxyMode(view.proxyMode.checked);
+    localStorage.setItem(PROXY_MODE_KEY, api.useProxy ? "1" : "0");
+    view.loginError.textContent = "";
+  });
   view.loginForm.addEventListener("submit", async event => {
     event.preventDefault();
     const username = view.loginUser.value.trim(), password = view.loginPassword.value;
