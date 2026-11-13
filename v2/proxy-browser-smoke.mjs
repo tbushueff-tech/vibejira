@@ -27,6 +27,7 @@ try {
   const checkbox = page.locator("#login-russian-proxy");
   await checkbox.waitFor();
   assert.equal(await checkbox.isChecked(), false);
+  assert.match(await page.locator("#login-proxy-route").textContent(), /напрямую · Cloudflare/);
   await page.locator("#login-user").fill("testuser");
   await page.locator("#login-password").fill("pass123456");
   await page.locator("#login-form").evaluate(form => form.requestSubmit());
@@ -35,12 +36,14 @@ try {
   assert.ok(!seen.some(url => url.startsWith(proxy)));
   seen.length = 0;
   await checkbox.check();
+  assert.match(await page.locator("#login-proxy-route").textContent(), /HostiMan · Россия/);
   await page.locator("#login-form").evaluate(form => form.requestSubmit());
   await page.waitForFunction(() => document.querySelector("#login-error")?.textContent.includes("Test login rejected"));
   assert.ok(seen.some(url => url.startsWith(proxy + "/api.php?route=%2Fauth%2Flogin")));
   assert.ok(!seen.some(url => url.startsWith(direct)));
   await page.reload();
   assert.equal(await page.locator("#login-russian-proxy").isChecked(), true);
+  assert.match(await page.locator("#login-proxy-route").textContent(), /HostiMan · Россия/);
   await page.locator("#login-russian-proxy").uncheck();
   await page.reload();
   assert.equal(await page.locator("#login-russian-proxy").isChecked(), false);
